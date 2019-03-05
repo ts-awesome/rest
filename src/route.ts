@@ -21,5 +21,9 @@ export abstract class Route implements IRoute {
     this.response.status(statusCode).json(content).end();
   }
 
+  protected setHeader(name: string, value: string): void {
+    this.response.setHeader(name, value);
+  }
+
   abstract handle(...args: any[]): Promise<void>;
 }

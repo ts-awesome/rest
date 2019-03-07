@@ -22,6 +22,7 @@ export interface ParameterMetadata {
   injectRoot: boolean;
   index: number;
   type: ParameterType;
+  parser?: (v: string) => any;
 }
 
 export interface MiddlewareMetadata {

@@ -1,6 +1,6 @@
 import { injectable, decorate } from 'inversify';
 
-import { RouteReflector, ActionType, ParameterType } from './route-refletor';
+import { RouteReflector, ActionType, ParameterType, ParameterMetadata } from './route-refletor';
 
 import { SwaggerService } from 'swagger-express-ts/swagger.service';
 import {v4} from 'node-uuid';
@@ -98,20 +98,34 @@ export const requestBody: ParameterDecoratorDelegate = paramDecoratorFactory('BO
 export const requestHeaders: ParameterDecoratorDelegate = paramDecoratorFactory('HEADERS');
 export const cookies: ParameterDecoratorDelegate = paramDecoratorFactory('COOKIES');
 
+const parserMap = {
+  [Number.name]: parseInt,
+  [Boolean.name]: (v: string | boolean) => v === 'true' || v === true,
+  [Date.name]: (v: string | Date) => new Date(v)
+}
+
 export function params(type: ParameterType, parameterName?: string) {
   return (target: Object, methodName: string, index: number) => {
 
     if (methodName !== ROUTER_HANDLE_ACTION_NAME) {
       throw new Error(`Invalid route method. Current decorator can only be added on ${ROUTER_HANDLE_ACTION_NAME}`);
     }
-
     const injectRoot = parameterName === undefined;
-    RouteReflector.addRouteParameterMetadata(target.constructor, {
+    const meta: ParameterMetadata = {
       index,
       injectRoot,
       parameterName,
       type
-    });
+    };
+    
+    let pTypes = Reflect.getOwnMetadata('design:paramtypes', target, methodName)
+      || Reflect.getMetadata('design:paramtypes', target, methodName);
+
+    if (pTypes && pTypes[index]) {
+      meta.parser = parserMap[pTypes[index].name];
+    }
+
+    RouteReflector.addRouteParameterMetadata(target.constructor,  meta);
   };
 }
 

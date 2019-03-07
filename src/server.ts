@@ -76,20 +76,23 @@ function registerMiddleware(app: Application, meta: MiddlewareMetadata): void {
 function extractParameters(req: Request, params: ParameterMetadata[] = []): any[] {
   // noinspection CommaExpressionJS
   return params
-    .reduce((r, a) => (((r as any)[a.index] = a), r), [])
-    .map(({ type, parameterName, injectRoot }) => {
-      switch (type) {
-        case 'PARAMS':   return getParam(req, 'params', injectRoot, parameterName);
-        case 'QUERY':    return getParam(req, 'query', injectRoot, parameterName);
-        case 'BODY':     return req.body;
-        case 'HEADERS':  return getParam(req, 'headers', injectRoot, parameterName);
-        case 'COOKIES':  return getParam(req, 'cookies', injectRoot, parameterName);
-        default: throw new Error(`Unknown parameter type ${type}`);
-      }
+    .reduce((r: ParameterMetadata[], a) => ((r[a.index] = a), r), [])
+    .map(({ type, parameterName, injectRoot, parser }) => {
+      const res = (() => {
+        switch (type) {
+          case 'PARAMS':   return getParam(req, 'params', injectRoot, parameterName);
+          case 'QUERY':    return getParam(req, 'query', injectRoot, parameterName);
+          case 'BODY':     return req.body;
+          case 'HEADERS':  return getParam(req, 'headers', injectRoot, parameterName);
+          case 'COOKIES':  return getParam(req, 'cookies', injectRoot, parameterName);
+          default: throw new Error(`Unknown parameter type ${type}`);
+        }
+      })();
+      return res && parser ? parser(res) : res;
     });
 }
 
-function getParam(source: Request, paramType: string, injectRoot: boolean, name?: string, ) {
+function getParam(source: Request, paramType: string, injectRoot: boolean, name?: string): string {
   if (paramType === 'headers' && name) {
     name = name.toLowerCase();
   }

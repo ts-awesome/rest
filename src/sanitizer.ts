@@ -1,1 +1,1 @@
-export type Sanitizer<T, X> = (o: T) => X;
+export type Sanitizer<T = any, X = T> = (o: T) => X;

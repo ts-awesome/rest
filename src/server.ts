@@ -6,7 +6,7 @@ import { MiddlewareMetadata, ParameterMetadata, RouteMetadata, RouteReflector } 
 
 import { IRoute, IHttpRequest, IHttpResponse, IMiddleware } from './interfaces';
 
-import Symbols from './symbols';
+import {Symbols} from './symbols';
 
 export type RequestContainerBinder = (container: Container, req: Request) => void;
 

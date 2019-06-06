@@ -1,6 +1,6 @@
 import {IHttpRequest, IHttpResponse, IRoute} from "./interfaces";
 import {inject, injectable} from "inversify";
-import Symbols from './symbols';
+import {Symbols} from './symbols';
 import { Sanitizer } from "./sanitizer";
 
 type ElementType<T> = T extends any[] ? T[number] : T;
@@ -22,7 +22,7 @@ export abstract class Route implements IRoute {
 
   protected sanitize<T, X = T>(objs: T[], sanitizers?: (string|Sanitizer<T, any>)[]): X[] {
     const container = this.request.container;
-    return (!sanitizers 
+    return (!sanitizers
       ? container.getAll<Sanitizer<T, any>>(Symbols.Sanitizer)
       : sanitizers.map(s =>
           typeof(s) === 'string'

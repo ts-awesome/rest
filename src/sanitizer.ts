@@ -1,0 +1,1 @@
+export type Sanitizer<T, X> = (o: T) => X;

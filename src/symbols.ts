@@ -1,4 +1,5 @@
 export default {
-  Response: Symbol(),
-  Request: Symbol(),
+  Response: Symbol('Response'),
+  Request: Symbol('Request'),
+  Sanitizer: Symbol('Sanitizer')
 }

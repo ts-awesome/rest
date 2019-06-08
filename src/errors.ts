@@ -22,8 +22,15 @@ export class RequestError extends Error {
 
 export class ConfigError extends RequestError {
   constructor(message?: string) {
-    super(message || "ConfigError Error", "ConfigError");
+    super(message || "Config Error", "ConfigError");
     Object.setPrototypeOf(this, ConfigError.prototype);
+  }
+}
+
+export class ForbiddenError extends RequestError {
+  constructor(message?: string) {
+    super(message || "Forbidden", "ForbiddenError");
+    Object.setPrototypeOf(this, ForbiddenError.prototype);
   }
 }
 

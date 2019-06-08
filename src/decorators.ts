@@ -2,53 +2,7 @@ import { injectable, decorate } from 'inversify';
 
 import { RouteReflector, ActionType, ParameterType, ParameterMetadata } from './route-refletor';
 
-import { SwaggerService } from 'swagger-express-ts/swagger.service';
-import {v4} from 'node-uuid';
-
-export {ApiPath} from 'swagger-express-ts';
-
-import {
-  IApiOperationDeleteArgs,
-  IApiOperationGetArgs,
-  IApiOperationPatchArgs,
-  IApiOperationPostArgs,
-  IApiOperationPutArgs,
-  SwaggerDefinitionConstant
-} from 'swagger-express-ts';
-
-export const SwaggerType = SwaggerDefinitionConstant.Model.Property.Type;
-
 const ROUTER_HANDLE_ACTION_NAME = 'handle';
-
-export function ApiOperationGet(args: IApiOperationGetArgs): MethodDecorator {
-  return function (target: any) {
-    SwaggerService.getInstance().addOperationGet(args, target, v4());
-  };
-}
-
-export function ApiOperationPatch(args: IApiOperationPatchArgs): MethodDecorator {
-  return function (target: any) {
-    SwaggerService.getInstance().addOperationPatch(args, target, v4());
-  };
-}
-
-export function ApiOperationPost(args: IApiOperationPostArgs): MethodDecorator {
-  return function (target: any) {
-    SwaggerService.getInstance().addOperationPost(args, target, v4());
-  };
-}
-
-export function ApiOperationPut(args: IApiOperationPutArgs): MethodDecorator {
-  return function (target: any) {
-    SwaggerService.getInstance().addOperationPut(args, target, v4());
-  };
-}
-
-export function ApiOperationDelete(args: IApiOperationDeleteArgs): MethodDecorator {
-  return function (target: any) {
-    SwaggerService.getInstance().addOperationDelete(args, target, v4());
-  };
-}
 
 export function route(actionType: ActionType, path: string, ...middlewares: any[]) {
   return (constructor: any) => {
@@ -117,7 +71,7 @@ export function params(type: ParameterType, parameterName?: string) {
       parameterName,
       type
     };
-    
+
     let pTypes = Reflect.getOwnMetadata('design:paramtypes', target, methodName)
       || Reflect.getMetadata('design:paramtypes', target, methodName);
 

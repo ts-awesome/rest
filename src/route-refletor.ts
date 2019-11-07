@@ -5,9 +5,9 @@ export type ActionType = 'post' | 'get' | 'put' | 'delete' | 'patch' | 'head' | 
 export type ParameterType = 'PARAMS' | 'QUERY' | 'BODY' | 'HEADERS' | 'COOKIES';
 
 export const METADATA_KEY = {
-  route: Symbol(),
-  parameter: Symbol(),
-  middleware: Symbol()
+  route: Symbol.for('route'),
+  parameter: Symbol.for('parameter'),
+  middleware: Symbol.for('middleware')
 };
 
 export interface RouteMetadata {

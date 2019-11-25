@@ -47,7 +47,7 @@ function registerRouter(app: Application, meta: RouteMetadata): void {
 
     const binds = meta.middlewares
       .map((Middleware: any) => {
-        const tempSymbol = Symbol.for('tempSymbol');
+        const tempSymbol = Symbol();
         req.container.bind<IMiddleware>(tempSymbol).to(Middleware).inSingletonScope();
         return tempSymbol as any;
       });
@@ -56,7 +56,7 @@ function registerRouter(app: Application, meta: RouteMetadata): void {
       await req.container.get<IMiddleware>(binds[i]).handle(req, res);
     }
 
-    const routeSymbol = Symbol.for('routeSymbol');
+    const routeSymbol = Symbol();
     req.container.bind<IRoute>(routeSymbol).to(meta.target).inSingletonScope();
     const instance = req.container.get<IRoute>(routeSymbol);
     let parametersMeta = RouteReflector.getRouteParametersMetadata(meta.target);
@@ -67,7 +67,7 @@ function registerRouter(app: Application, meta: RouteMetadata): void {
 
 function registerMiddleware(app: Application, meta: MiddlewareMetadata): void {
   app[meta.actionType](meta.path, async(async (req: IHttpRequest, res: IHttpResponse) => {
-    const middlewareSymbol = Symbol.for('middlewareSymbol');
+    const middlewareSymbol = Symbol();
     req.container.bind<IMiddleware>(middlewareSymbol).to(meta.target);
     return req.container.get<IMiddleware>(middlewareSymbol).handle(req, res);
   }));

@@ -6,7 +6,7 @@ import { MiddlewareMetadata, ParameterMetadata, RouteMetadata, RouteReflector } 
 
 import { IRoute, IHttpRequest, IHttpResponse, IMiddleware } from './interfaces';
 
-import {Symbols} from './symbols';
+import {RequestSymbol, ResponseSymbol} from './symbols';
 
 export type RequestContainerBinder = (container: Container, req: Request) => void;
 
@@ -36,8 +36,8 @@ function requireScopeBinder(app: Application, rootContainer: Container, requestC
   app.use(async(async (req: IHttpRequest, res: IHttpResponse) => {
     let requestContainer = rootContainer.createChild();
     requestContainerBinder(requestContainer, req);
-    requestContainer.bind<IHttpRequest>(Symbols.Request).toConstantValue(req);
-    requestContainer.bind<IHttpResponse>(Symbols.Response).toConstantValue(res);
+    requestContainer.bind<IHttpRequest>(RequestSymbol).toConstantValue(req);
+    requestContainer.bind<IHttpResponse>(ResponseSymbol).toConstantValue(res);
     req.container = requestContainer;
   }));
 }
@@ -92,8 +92,8 @@ function extractParameters(req: Request, params: ParameterMetadata[] = []): any[
     });
 }
 
-function getParam(source: Request, paramType: string, injectRoot: boolean, name?: string): string {
-  if (paramType === 'headers' && name) {
+function getParam(source: Request, paramType: string, injectRoot: boolean, name?: string | symbol): string {
+  if (paramType === 'headers' && typeof name === 'string') {
     name = name.toLowerCase();
   }
   let param = source[paramType];

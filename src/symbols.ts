@@ -1,5 +1,9 @@
+export const ResponseSymbol = Symbol.for('Response');
+export const RequestSymbol = Symbol.for('Request');
+export const SanitizerSymbol = Symbol.for('Sanitizer');
+
 export const Symbols = {
-  Response: Symbol.for('Response'),
-  Request: Symbol.for('Request'),
-  Sanitizer: Symbol.for('Sanitizer'),
+  Response: ResponseSymbol,
+  Request: ResponseSymbol,
+  Sanitizer: SanitizerSymbol,
 };

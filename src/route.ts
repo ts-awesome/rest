@@ -1,18 +1,16 @@
 import {IHttpRequest, IHttpResponse, IRoute} from "./interfaces";
 import {inject, injectable} from "inversify";
-import {Symbols} from './symbols';
+import {RequestSymbol, ResponseSymbol, SanitizerSymbol} from './symbols';
 import { Sanitizer } from "./sanitizer";
-
-type ElementType<T> = T extends any[] ? T[number] : T;
 
 @injectable()
 export abstract class Route implements IRoute {
 
-  @inject(Symbols.Request)
-  protected readonly request: IHttpRequest;
+  @inject(RequestSymbol)
+  protected readonly request!: IHttpRequest;
 
-  @inject(Symbols.Response)
-  protected readonly response: IHttpResponse;
+  @inject(ResponseSymbol)
+  protected readonly response!: IHttpResponse;
 
   //TODO add protected redirect method
 
@@ -20,30 +18,40 @@ export abstract class Route implements IRoute {
     this.response.status(statusCode).end();
   }
 
-  protected sanitize<T, X = T>(objs: T[], sanitizers?: (string|Sanitizer<T, any>)[]): X[] {
+  protected sanitize<T, X = unknown>(objs: T[], sanitizers?: (string|symbol|Sanitizer<T, unknown>)[]): X[] {
     const container = this.request.container;
-    return (!sanitizers
-      ? container.getAll<Sanitizer<T, any>>(Symbols.Sanitizer)
-      : sanitizers.map(s =>
-          typeof(s) === 'string'
-            ? container.getNamed<Sanitizer<T, any>>(Symbols.Sanitizer, s)
-            : s
-        )
-      )
-      .reduce((list, sanitizer) => list.map(x => sanitizer(x)), objs.map(x => ({...x})));
+    if (container.isBound(SanitizerSymbol)) {
+      sanitizers = sanitizers ?? container.getAll<Sanitizer<T, any>>(SanitizerSymbol);
+    }
+
+    if (!Array.isArray(sanitizers)) {
+      return objs as any;
+    }
+
+    const resolved: Sanitizer<unknown, unknown>[] = sanitizers
+      .map(s => typeof s === 'function'
+        ? s as Sanitizer<unknown, unknown>
+        : container.getNamed<Sanitizer<unknown, unknown>>(SanitizerSymbol, s));
+
+    const sanitizer: Sanitizer<T, unknown> = (x: unknown) => {
+      return resolved.reduce((acc, op) => op(acc), x);
+    };
+
+    return objs.map(sanitizer) as any;
   }
 
   protected json<TResponse>(
     content: TResponse,
     statusCode: number = 200,
-    sanitizers?: (string|Sanitizer<ElementType<TResponse>, any>)[]
+    sanitizers?: (string | Sanitizer<unknown, unknown>)[]
   ): void {
     const res = this.sanitize(Array.isArray(content) ? content : [content] , sanitizers);
     this.response.status(statusCode || 200).json(Array.isArray(content) ? res : res[0]).end();
   }
 
-  protected setHeader(name: string, value: string): void {
+  protected setHeader(name: string, value: string): this {
     this.response.setHeader(name, value);
+    return this;
   }
 
   abstract handle(...args: any[]): Promise<void>;

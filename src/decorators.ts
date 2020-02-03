@@ -40,7 +40,7 @@ export function httpPatch(path: string, ...middlewares: any[]) {
   return route('patch', path, ...middlewares);
 }
 
-type ParameterDecoratorDelegate = (cookieName?: string) => ParameterDecorator;
+type ParameterDecoratorDelegate = (name?: string) => ParameterDecorator;
 
 function paramDecoratorFactory(parameterType: ParameterType): ParameterDecoratorDelegate {
   return (name?: string) => params(parameterType, name);
@@ -58,8 +58,8 @@ const parserMap = {
   [Date.name]: (v: string | Date) => new Date(v)
 }
 
-export function params(type: ParameterType, parameterName?: string) {
-  return (target: Object, methodName: string, index: number) => {
+export function params(type: ParameterType, parameterName?: string): ParameterDecorator {
+  return (target: Object, methodName: string | symbol, index: number) => {
 
     if (methodName !== ROUTER_HANDLE_ACTION_NAME) {
       throw new Error(`Invalid route method. Current decorator can only be added on ${ROUTER_HANDLE_ACTION_NAME}`);

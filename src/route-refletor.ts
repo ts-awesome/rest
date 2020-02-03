@@ -18,7 +18,7 @@ export interface RouteMetadata {
 }
 
 export interface ParameterMetadata {
-  parameterName: string | undefined;
+  parameterName: string | symbol | undefined;
   injectRoot: boolean;
   index: number;
   type: ParameterType;

@@ -1,11 +1,4 @@
-export enum StatusCode {
-  Success = 200,
-  BadRequest = 400,
-  Unauthorized = 401,
-  Forbidden = 403,
-  NotFound = 404,
-  ServerError = 500
-}
+import {StatusCode} from './status-code';
 
 export class RequestError extends Error {
   public statusCode: number;
@@ -29,7 +22,7 @@ export class ConfigError extends RequestError {
 
 export class ForbiddenError extends RequestError {
   constructor(message?: string) {
-    super(message || "Forbidden", "ForbiddenError");
+    super(message || "Forbidden", "ForbiddenError", StatusCode.Forbidden);
     Object.setPrototypeOf(this, ForbiddenError.prototype);
   }
 }

@@ -1,3 +1,4 @@
+export * from './status-code';
 export * from './symbols';
 export * from './interfaces';
 export * from './errors';

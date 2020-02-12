@@ -1,7 +1,7 @@
 import {IHttpRequest, IHttpResponse, IRoute} from './interfaces';
 import {inject, injectable} from 'inversify';
 import {RequestSymbol, ResponseSymbol, SanitizerSymbol} from './symbols';
-import { Sanitizer } from './sanitizer';
+import {Sanitizer} from './sanitizer';
 import {RequestError} from './errors';
 import {StatusCode} from './status-code';
 
@@ -48,6 +48,7 @@ export abstract class Route implements IRoute {
     sanitizers?: (string | Sanitizer<unknown, unknown>)[]
   ): void {
     this.ensureRequestMedia('application/json');
+    this.setHeader('Date', new Date().toUTCString());
 
     const res = this.sanitize(Array.isArray(content) ? content : [content] , sanitizers);
 
@@ -62,6 +63,7 @@ export abstract class Route implements IRoute {
     statusCode: number = 200
   ): void {
     this.ensureRequestMedia('text/plain');
+    this.setHeader('Date', new Date().toUTCString());
 
     this.response
       .status(statusCode ?? 200)
@@ -74,9 +76,9 @@ export abstract class Route implements IRoute {
     const { accept } = this.request.headers;
     if (typeof accept === 'string' && accept.split(',').every(value => !value.trim().startsWith(expected))) {
       throw new RequestError(
-        `Media query ${JSON.stringify(accept)} not supported. Expected ${expected}`,
+        `Requested content-type is not supported. Default is ${expected}`,
         '',
-        StatusCode.UnsupportedMediaType);
+        StatusCode.NotAcceptable);
     }
   }
 
@@ -85,5 +87,20 @@ export abstract class Route implements IRoute {
     return this;
   }
 
+  protected ensureETag(uid: string, lastModified: Date, version: number = 0) {
+    const value = this.request.header('If-Match');
+    if (typeof value === 'string' && value !== etag(uid, lastModified, version)) {
+      throw new RequestError(`Newer content found on server`, 'Precondition Failed', StatusCode.PreconditionFailed);
+    }
+  }
+
+  protected setETag(uid: string, lastModified: Date, version: number = 0) {
+    this.setHeader('ETag', etag(uid, lastModified, version));
+  }
+
   public abstract handle(...args: any[]): Promise<void>;
+}
+
+function etag(uid: string, lastModified: Date, version: number = 0) {
+  return JSON.stringify(new Buffer(`${uid}-${version}-${lastModified.getTime()}`).toString('base64'));
 }

@@ -22,7 +22,7 @@ export class ConfigError extends RequestError {
 
 export class ForbiddenError extends RequestError {
   constructor(message?: string) {
-    super(message || "Forbidden", "ForbiddenError", StatusCode.Forbidden);
+    super(message || "Forbidden", "Forbidden", StatusCode.Forbidden);
     Object.setPrototypeOf(this, ForbiddenError.prototype);
   }
 }

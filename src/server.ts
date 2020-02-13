@@ -85,17 +85,17 @@ function extractParameters(req: Request, params: ParameterMetadata[] = []): any[
           case 'QUERY_NAMED':   return getParam(req, 'query', injectRoot, parameterName);
           case 'QUERY_MODEL':   return req.query;
           case 'REQUEST_NAMED': return getParam(req, 'request', injectRoot, parameterName);
-          case 'REQUEST_MODEL': return req.body;
+          case 'BODY_MODEL':    return req.body;
           case 'HEADER_NAMED':  return getParam(req, 'headers', injectRoot, parameterName);
-          case 'COOKIES':       return getParam(req, 'cookies', injectRoot, parameterName);
+          case 'COOKIE_NAMED':  return getParam(req, 'cookies', injectRoot, parameterName);
           default: throw new Error(`Unknown parameter type ${type}`);
         }
       })();
-      return res && parser ? parser(res) : res;
+      return parser?.(res) ?? res;
     });
 }
 
-function getParam(source: Request, paramType: string, injectRoot: boolean, name?: string | symbol): string {
+function getParam(source: Request, paramType: 'query'|'request'|'headers'|'cookies', injectRoot: boolean, name?: string | symbol): string {
   if (paramType === 'headers' && typeof name === 'string') {
     name = name.toLowerCase();
   }

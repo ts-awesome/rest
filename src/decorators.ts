@@ -1,4 +1,5 @@
 import { injectable, decorate } from 'inversify';
+import reader, {proxied} from '@viatsyshyn/ts-model-reader';
 
 import { RouteReflector, ActionType, ParameterType, ParameterMetadata } from './route-refletor';
 
@@ -40,13 +41,7 @@ export function httpPatch(path: string, ...middlewares: any[]): MethodDecorator 
   return route('patch', path, ...middlewares);
 }
 
-const parserMap = {
-  [Number.name]: parseInt,
-  [Boolean.name]: (v: string | boolean) => v === 'true' || v === true,
-  [Date.name]: (v: string | Date) => new Date(v)
-};
-
-export function params(type: ParameterType, parameterName?: string): ParameterDecorator {
+export function params<T>(type: ParameterType, parameterName?: string, Model?: T | [T], nullable?: boolean): ParameterDecorator {
   return (target: Object, methodName: string | symbol, index: number) => {
 
     if (methodName !== ROUTER_HANDLE_ACTION_NAME) {
@@ -63,27 +58,83 @@ export function params(type: ParameterType, parameterName?: string): ParameterDe
     const pTypes = Reflect.getOwnMetadata('design:paramtypes', target, methodName)
       || Reflect.getMetadata('design:paramtypes', target, methodName);
 
-    if (pTypes?.[index]) {
-      meta.parser = parserMap[pTypes[index].name];
+    if (pTypes?.[index] || Model) {
+      const convertTo: ((raw: any) => T) = Model ?? pTypes?.[index];
+      if ([Number, String, Boolean].includes(convertTo as any)) {
+        meta.parser = (raw, context) => reader(raw, convertTo, context ?? `param[${index}]`, !nullable as true);
+      } else {
+        meta.parser = (raw, context) => proxied(raw, convertTo as any, context ?? `param[${index}]`, !nullable);
+      }
     }
 
-    RouteReflector.addRouteParameterMetadata(target.constructor,  meta);
+    RouteReflector.addRouteParameterMetadata(target.constructor, meta);
   };
 }
 
-type ParameterDecoratorDelegate = (name?: string) => ParameterDecorator;
-
-function paramDecoratorFactory(parameterType: ParameterType): ParameterDecoratorDelegate {
-  return (name?: string) => params(parameterType, name);
+function last<T>(x: T[]): T | undefined {
+  return x.length > 0 ? x[x.length - 1] : undefined;
 }
 
-export const queryParam: ParameterDecoratorDelegate = paramDecoratorFactory('QUERY_NAMED');
-export const queryModel: ParameterDecoratorDelegate = paramDecoratorFactory('QUERY_MODEL');
-export const requestParam: ParameterDecoratorDelegate = paramDecoratorFactory('REQUEST_NAMED');
-export const requestBody: ParameterDecoratorDelegate = paramDecoratorFactory('REQUEST_MODEL');
-export const header: ParameterDecoratorDelegate = paramDecoratorFactory('HEADER_NAMED');
-export const cookies: ParameterDecoratorDelegate = paramDecoratorFactory('COOKIES');
+function parse(args: any[]): [any, boolean] {
+  const nullable = typeof last(args) === 'boolean' ? args.pop() as boolean : false;
+  const model = args.pop();
+  return [model, nullable];
+}
 
+export function queryParam<T>(name: string, model: T | [T], nullable?: true): ParameterDecorator;
+export function queryParam<T>(name: string, nullable?: true): ParameterDecorator;
+export function queryParam<T>(name: string, ...args: any[]): ParameterDecorator {
+  const [model, nullable] = parse(args);
+  return params('QUERY_NAMED', name, model, nullable);
+}
+
+export function requestParam<T>(name: string, model?: T | [T], nullable?: true): ParameterDecorator;
+export function requestParam<T>(name: string, nullable?: true): ParameterDecorator;
+export function requestParam<T>(name: string, ...args: any[]): ParameterDecorator {
+  const [model, nullable] = parse(args);
+  return params('REQUEST_NAMED', name, model, nullable);
+}
+
+export function headerParam<T>(name: string, model?: T | [T], nullable?: true): ParameterDecorator;
+export function headerParam<T>(name: string, nullable?: true): ParameterDecorator;
+export function headerParam<T>(name: string, ...args: any[]): ParameterDecorator {
+  const [model, nullable] = parse(args);
+  return params('HEADER_NAMED', name, model, nullable);
+}
+
+export function cookieParam<T>(name: string, model?: T | [T], nullable?: true): ParameterDecorator;
+export function cookieParam<T>(name: string, nullable?: true): ParameterDecorator;
+export function cookieParam<T>(name: string, ...args: any[]): ParameterDecorator {
+  const [model, nullable] = parse(args);
+  return params('COOKIE_NAMED', name, model, nullable);
+}
+
+export function queryModel<T>(model: T, nullable?: true): ParameterDecorator;
+export function queryModel<T>(nullable?: true): ParameterDecorator;
+export function queryModel(target: Object, methodName: string | symbol, index: number): void;
+export function queryModel(...args: any): ParameterDecorator | void {
+  if (args.length === 3) {
+    const [target, key, index] = args;
+    return params('QUERY_MODEL')(target, key, index);
+  }
+
+  const [Model, nullable] = parse(args);
+  return params('QUERY_MODEL', undefined, Model, nullable);
+}
+
+export function requestBody<T>(model: [T], nullable?: true): ParameterDecorator;
+export function requestBody<T>(model: T, nullable?: true): ParameterDecorator;
+export function requestBody<T>(nullable?: true): ParameterDecorator;
+export function requestBody(target: Object, methodName: string | symbol, index: number): void;
+export function requestBody(...args: any): ParameterDecorator | void {
+  if (args.length === 3) {
+    const [target, key, index] = args;
+    return params('BODY_MODEL')(target, key, index);
+  }
+
+  const [Model, nullable] = parse(args);
+  return params('BODY_MODEL', undefined, Model, nullable);
+}
 
 export function middleware(priority: number, path = '*', actionType: ActionType = 'all') {
   return (target: Object) => {

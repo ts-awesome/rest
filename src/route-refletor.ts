@@ -2,7 +2,7 @@ import "reflect-metadata";
 
 export type ActionType = 'post' | 'get' | 'put' | 'delete' | 'patch' | 'head' | 'all';
 
-export type ParameterType = 'QUERY_NAMED' | 'QUERY_MODEL' | 'REQUEST_NAMED' | 'REQUEST_MODEL' | 'HEADER_NAMED' | 'COOKIES';
+export type ParameterType = 'QUERY_NAMED' | 'QUERY_MODEL' | 'REQUEST_NAMED' | 'BODY_MODEL' | 'HEADER_NAMED' | 'COOKIE_NAMED';
 
 export const METADATA_KEY = {
   route: Symbol.for('route'),
@@ -22,7 +22,7 @@ export interface ParameterMetadata {
   injectRoot: boolean;
   index: number;
   type: ParameterType;
-  parser?: (v: string) => any;
+  parser?: (raw: any, context?: string) => any;
 }
 
 export interface MiddlewareMetadata {

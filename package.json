@@ -11,14 +11,14 @@
   "author": "Volodymyr Iatsyshyn <viatsyshyn@gmail.com>",
   "license": "ISC",
   "peerDependencies": {
-    "express": "^4.16.0",
+    "express": "~4.17.1",
     "inversify": "^5.0.1"
   },
   "dependencies": {
     "reflect-metadata": "^0.1.13"
   },
   "devDependencies": {
-    "@types/express": "^4.16.0",
+    "@types/express": "~4.17.1",
     "@types/inversify": "^2.0.33",
     "@types/reflect-metadata": "^0.1.0",
     "typescript": "^3.7.5",

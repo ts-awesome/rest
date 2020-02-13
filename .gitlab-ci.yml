@@ -7,20 +7,24 @@ before_script:
 
 build:
   stage: build
-  image: node:8
+  image: node:12
   only:
   - master
   - develop
   script:
+  - npm run lint
   - npm run build
+  - npm run test
 
 publish:
   stage: publish
-  image: node:8
+  image: node:12
   only:
   - tags
   script:
+  - npm run lint
   - npm run build
+  - npm run test
   - npm --no-git-tag-version version ${CI_COMMIT_TAG}
   - npm publish
   variables:

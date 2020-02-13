@@ -5,18 +5,17 @@ export interface IHttpRequest extends Request {
   container: Container;
 }
 
-export interface IHttpResponse extends Response {
-
-}
+// eslint-disable-next-line @typescript-eslint/no-empty-interface
+export interface IHttpResponse extends Response {}
 
 export interface IMiddleware {
-  handle(req: IHttpRequest, res: IHttpResponse): Promise<void>
+  handle(req: IHttpRequest, res: IHttpResponse): Promise<void>;
 }
 
 export interface IErrorMiddleware {
-  handle(err: Error, req: IHttpRequest, res: IHttpResponse): Promise<void>
+  handle(err: Error, req: IHttpRequest, res: IHttpResponse): Promise<void>;
 }
 
 export interface IRoute {
-  handle(...args: any[]): Promise<void>
+  handle(...args: any[]): Promise<void>;
 }

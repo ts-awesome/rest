@@ -2,7 +2,7 @@ import "reflect-metadata";
 
 export type ActionType = 'post' | 'get' | 'put' | 'delete' | 'patch' | 'head' | 'all';
 
-export type ParameterType = 'PARAMS' | 'QUERY' | 'BODY' | 'HEADERS' | 'COOKIES';
+export type ParameterType = 'QUERY_NAMED' | 'QUERY_MODEL' | 'REQUEST_NAMED' | 'REQUEST_MODEL' | 'HEADER_NAMED' | 'COOKIES';
 
 export const METADATA_KEY = {
   route: Symbol.for('route'),
@@ -14,7 +14,7 @@ export interface RouteMetadata {
   path: string;
   middlewares: any[];
   target: any;
-  actionType: ActionType
+  actionType: ActionType;
 }
 
 export interface ParameterMetadata {
@@ -27,9 +27,9 @@ export interface ParameterMetadata {
 
 export interface MiddlewareMetadata {
   path: string;
-  actionType: ActionType,
-  target: any,
-  priority: number
+  actionType: ActionType;
+  target: any;
+  priority: number;
 }
 
 export class RouteReflector {

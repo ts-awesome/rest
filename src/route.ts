@@ -5,6 +5,10 @@ import {Sanitizer} from './sanitizer';
 import {RequestError} from './errors';
 import {StatusCode} from './status-code';
 
+function etag(uid: string, lastModified: Date, version= 0) {
+  return JSON.stringify(new Buffer(`${uid}-${version}-${lastModified.getTime()}`).toString('base64'));
+}
+
 @injectable()
 export abstract class Route implements IRoute {
 
@@ -44,7 +48,7 @@ export abstract class Route implements IRoute {
 
   protected json<TResponse>(
     content: TResponse,
-    statusCode: number = 200,
+    statusCode: StatusCode | number = StatusCode.OK,
     sanitizers?: (string | Sanitizer<unknown, unknown>)[]
   ): void {
     this.ensureRequestMedia('application/json');
@@ -60,7 +64,7 @@ export abstract class Route implements IRoute {
 
   protected text<TResponse extends string>(
     content: TResponse,
-    statusCode: number = 200
+    statusCode: StatusCode | number = StatusCode.OK,
   ): void {
     this.ensureRequestMedia('text/plain');
     this.setHeader('Date', new Date().toUTCString());
@@ -87,20 +91,16 @@ export abstract class Route implements IRoute {
     return this;
   }
 
-  protected ensureETag(uid: string, lastModified: Date, version: number = 0) {
+  protected ensureETag(uid: string, lastModified: Date, version = 0) {
     const value = this.request.header('If-Match');
     if (typeof value === 'string' && value !== etag(uid, lastModified, version)) {
       throw new RequestError(`Newer content found on server`, 'Precondition Failed', StatusCode.PreconditionFailed);
     }
   }
 
-  protected setETag(uid: string, lastModified: Date, version: number = 0) {
+  protected setETag(uid: string, lastModified: Date, version = 0) {
     this.setHeader('ETag', etag(uid, lastModified, version));
   }
 
   public abstract handle(...args: any[]): Promise<void>;
-}
-
-function etag(uid: string, lastModified: Date, version: number = 0) {
-  return JSON.stringify(new Buffer(`${uid}-${version}-${lastModified.getTime()}`).toString('base64'));
 }

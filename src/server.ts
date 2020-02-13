@@ -10,12 +10,14 @@ import {RequestSymbol, ResponseSymbol} from './symbols';
 
 export type RequestContainerBinder = (container: Container, req: Request) => void;
 
+/* eslint-disable @typescript-eslint/no-use-before-define */
+
 export default function (app: Application, rootContainer: Container, requestContainerBinder: RequestContainerBinder): void {
 
   // create request container here
   requireScopeBinder(app, rootContainer, requestContainerBinder);
 
-  let middlewaresMetadata = RouteReflector
+  const middlewaresMetadata = RouteReflector
     .getMiddlewaresMetadata()
     .sort(meta => meta.priority);
 
@@ -34,7 +36,7 @@ export default function (app: Application, rootContainer: Container, requestCont
 
 function requireScopeBinder(app: Application, rootContainer: Container, requestContainerBinder: RequestContainerBinder): void {
   app.use(async(async (req: IHttpRequest, res: IHttpResponse) => {
-    let requestContainer = rootContainer.createChild();
+    const requestContainer = rootContainer.createChild();
     requestContainerBinder(requestContainer, req);
     requestContainer.bind<IHttpRequest>(RequestSymbol).toConstantValue(req);
     requestContainer.bind<IHttpResponse>(ResponseSymbol).toConstantValue(res);
@@ -59,8 +61,8 @@ function registerRouter(app: Application, meta: RouteMetadata): void {
     const routeSymbol = Symbol();
     req.container.bind<IRoute>(routeSymbol).to(meta.target).inSingletonScope();
     const instance = req.container.get<IRoute>(routeSymbol);
-    let parametersMeta = RouteReflector.getRouteParametersMetadata(meta.target);
-    let args = extractParameters(req, parametersMeta);
+    const parametersMeta = RouteReflector.getRouteParametersMetadata(meta.target);
+    const args = extractParameters(req, parametersMeta);
     return instance.handle(...args);
   }));
 }
@@ -80,11 +82,12 @@ function extractParameters(req: Request, params: ParameterMetadata[] = []): any[
     .map(({ type, parameterName, injectRoot, parser }) => {
       const res = (() => {
         switch (type) {
-          case 'PARAMS':   return getParam(req, 'params', injectRoot, parameterName);
-          case 'QUERY':    return getParam(req, 'query', injectRoot, parameterName);
-          case 'BODY':     return req.body;
-          case 'HEADERS':  return getParam(req, 'headers', injectRoot, parameterName);
-          case 'COOKIES':  return getParam(req, 'cookies', injectRoot, parameterName);
+          case 'QUERY_NAMED':   return getParam(req, 'query', injectRoot, parameterName);
+          case 'QUERY_MODEL':   return req.query;
+          case 'REQUEST_NAMED': return getParam(req, 'request', injectRoot, parameterName);
+          case 'REQUEST_MODEL': return req.body;
+          case 'HEADER_NAMED':  return getParam(req, 'headers', injectRoot, parameterName);
+          case 'COOKIES':       return getParam(req, 'cookies', injectRoot, parameterName);
           default: throw new Error(`Unknown parameter type ${type}`);
         }
       })();
@@ -96,7 +99,7 @@ function getParam(source: Request, paramType: string, injectRoot: boolean, name?
   if (paramType === 'headers' && typeof name === 'string') {
     name = name.toLowerCase();
   }
-  let param = source[paramType];
+  const param = source[paramType];
 
   if (injectRoot) {
     return param;

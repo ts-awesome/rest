@@ -5,7 +5,7 @@ import { RouteReflector, ActionType, ParameterType, ParameterMetadata } from './
 
 const ROUTER_HANDLE_ACTION_NAME = 'handle';
 
-export function route(actionType: ActionType, path: string, ...middlewares: any[]): MethodDecorator {
+export function route(actionType: ActionType, path: string, ...middlewares: any[]): ClassDecorator {
   return (constructor: any) => {
     decorate(injectable(), constructor);
 
@@ -19,25 +19,25 @@ export function route(actionType: ActionType, path: string, ...middlewares: any[
   }
 }
 
-export function httpAll(path: string, ...middlewares: any[]): MethodDecorator {
+export function httpAll(path: string, ...middlewares: any[]): ClassDecorator {
   return route('all', path, ...middlewares);
 }
-export function httpPost(path: string, ...middlewares: any[]): MethodDecorator {
+export function httpPost(path: string, ...middlewares: any[]): ClassDecorator {
   return route('post', path, ...middlewares);
 }
-export function httpPut(path: string, ...middlewares: any[]): MethodDecorator {
+export function httpPut(path: string, ...middlewares: any[]): ClassDecorator {
   return route('put', path, ...middlewares);
 }
-export function httpGet(path: string, ...middlewares: any[]): MethodDecorator {
+export function httpGet(path: string, ...middlewares: any[]): ClassDecorator {
   return route('get', path, ...middlewares);
 }
-export function httpDelete(path: string, ...middlewares: any[]): MethodDecorator {
+export function httpDelete(path: string, ...middlewares: any[]): ClassDecorator {
   return route('delete', path, ...middlewares);
 }
-export function httpHead(path: string, ...middlewares: any[]): MethodDecorator {
+export function httpHead(path: string, ...middlewares: any[]): ClassDecorator {
   return route('head', path, ...middlewares);
 }
-export function httpPatch(path: string, ...middlewares: any[]): MethodDecorator {
+export function httpPatch(path: string, ...middlewares: any[]): ClassDecorator {
   return route('patch', path, ...middlewares);
 }
 
@@ -136,7 +136,7 @@ export function requestBody(...args: any): ParameterDecorator | void {
   return params('BODY_MODEL', undefined, Model, nullable);
 }
 
-export function middleware(priority: number, path = '*', actionType: ActionType = 'all') {
+export function middleware(priority: number, path = '*', actionType: ActionType = 'all'): ClassDecorator {
   return (target: Object) => {
     decorate(injectable(), target);
 

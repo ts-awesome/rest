@@ -81,7 +81,7 @@ export const queryParam: ParameterDecoratorDelegate = paramDecoratorFactory('QUE
 export const queryModel: ParameterDecoratorDelegate = paramDecoratorFactory('QUERY_MODEL');
 export const requestParam: ParameterDecoratorDelegate = paramDecoratorFactory('REQUEST_NAMED');
 export const requestBody: ParameterDecoratorDelegate = paramDecoratorFactory('REQUEST_MODEL');
-export const requestHeader: ParameterDecoratorDelegate = paramDecoratorFactory('HEADER_NAMED');
+export const header: ParameterDecoratorDelegate = paramDecoratorFactory('HEADER_NAMED');
 export const cookies: ParameterDecoratorDelegate = paramDecoratorFactory('COOKIES');
 
 

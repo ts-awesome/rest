@@ -78,7 +78,11 @@ export abstract class Route implements IRoute {
 
   protected ensureRequestMedia(expected: string): void {
     const { accept } = this.request.headers;
-    if (typeof accept === 'string' && accept.split(',').every(value => !value.trim().startsWith(expected))) {
+    if (typeof accept !== 'string' || accept.indexOf('*/*') >= 0) {
+      return;
+    }
+
+    if (accept.split(',').every(value => !value.trim().startsWith(expected))) {
       throw new RequestError(
         `Requested content-type is not supported. Default is ${expected}`,
         '',

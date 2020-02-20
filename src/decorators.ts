@@ -61,9 +61,9 @@ export function params<T>(type: ParameterType, parameterName?: string, Model?: T
     if (pTypes?.[index] || Model) {
       const convertTo: ((raw: any) => T) = Model ?? pTypes?.[index];
       if ([Number, String, Boolean].includes(convertTo as any)) {
-        meta.parser = (raw, context) => reader(raw, convertTo, context ?? `param[${index}]`, !nullable as true);
+        meta.parser = (raw, context) => raw != null ? reader(raw, convertTo, context ?? `param[${index}]`, !nullable as true) : raw;
       } else {
-        meta.parser = (raw, context) => proxied(raw, convertTo as any, context ?? `param[${index}]`, !nullable);
+        meta.parser = (raw, context) => raw != null ? proxied(raw, convertTo as any, context ?? `param[${index}]`, !nullable) : raw;
       }
     }
 

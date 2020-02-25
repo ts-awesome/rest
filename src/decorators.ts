@@ -63,7 +63,7 @@ export function params<T>(type: ParameterType, parameterName?: string, Model?: T
       if ([Number, String, Boolean].includes(convertTo as any)) {
         meta.parser = (raw, context) => raw != null ? reader(raw, convertTo, context ?? `param[${index}]`, !nullable as true) : raw;
       } else {
-        meta.parser = (raw, context) => raw != null ? proxied(raw, convertTo as any, context ?? `param[${index}]`, !nullable) : raw;
+        meta.parser = (raw, context) => raw != null && typeof(raw) !== 'function' ? proxied(raw, convertTo as any, context ?? `param[${index}]`, !nullable) : raw
       }
     }
 

@@ -16,7 +16,7 @@
     "inversify": "^5.0.1"
   },
   "dependencies": {
-    "@viatsyshyn/ts-model-reader": "~0.1.4",
+    "@viatsyshyn/ts-model-reader": "~0.1.5",
     "reflect-metadata": "^0.1.13"
   },
   "devDependencies": {

@@ -2,8 +2,12 @@ import {IHttpRequest, IHttpResponse, IRoute} from './interfaces';
 import {inject, injectable} from 'inversify';
 import {RequestSymbol, ResponseSymbol, SanitizerSymbol} from './symbols';
 import {Sanitizer} from './sanitizer';
-import {RequestError} from './errors';
+import {BadRequestError, RequestError} from './errors';
 import {StatusCode} from './status-code';
+
+interface IValidator<T> {
+  validate(value: T): true | string[];
+}
 
 function etag(uid: string, lastModified: Date, version= 0) {
   return JSON.stringify(new Buffer(`${uid}-${version}-${lastModified.getTime()}`).toString('base64'));
@@ -136,6 +140,25 @@ export abstract class Route implements IRoute {
     this.setHeader('ETag', etag.endsWith('"') ? etag : JSON.stringify(etag));
     if (lastModified) {
       this.setHeader('Last-Modified', lastModified.toString());
+    }
+  }
+
+  protected validate<T>(validator: IValidator<T>, value: T, message?: string): void;
+  protected validate<T>(validator: IValidator<T>, value: T[], message?: string): void;
+  protected validate<T>(validator: IValidator<any>, value: any, message?: string): void {
+    if (Array.isArray(value)) {
+      value.forEach(v => {
+        this.validate(validator, v);
+      })
+    }
+
+    if (typeof value === 'object' && Object.prototype.hasOwnProperty.call(value, 'raw')) {
+      value = value.raw;
+    }
+
+    const isValid = validator.validate(value);
+    if (isValid !== true) {
+      throw new BadRequestError((message ?? 'Bad request')  + '\n' + isValid.join('\n'));
     }
   }
 

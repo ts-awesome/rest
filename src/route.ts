@@ -95,15 +95,48 @@ export abstract class Route implements IRoute {
     return this;
   }
 
+  protected isNewerContent(etag: string, lastModified?: Date): boolean {
+    const ifNoneMatch = this.request.header('If-None-Match');
+    if (typeof ifNoneMatch === 'string') {
+      etag = etag.endsWith('"') ? etag : JSON.stringify(etag);
+      return ifNoneMatch.replace('W/', '') !== etag.replace('W/', '');
+    }
+
+    const ifModifiedSince = this.request.header('If-Modified-Since');
+    if (ifModifiedSince) {
+      const ts = new Date(ifModifiedSince).getTime();
+      return isNaN(ts) || ts > (lastModified?.getTime() ?? 0);
+    }
+
+    return true;
+  }
+
+  protected isNewerModel(uid: string, lastModified: Date, version = 0) {
+    return this.isNewerContent(etag(uid, lastModified, version), lastModified);
+  }
+
   protected ensureETag(uid: string, lastModified: Date, version = 0) {
-    const value = this.request.header('If-Match');
-    if (typeof value === 'string' && value !== etag(uid, lastModified, version)) {
+    if (!this.isNewerModel(uid, lastModified, version)) {
       throw new RequestError(`Newer content found on server`, 'Precondition Failed', StatusCode.PreconditionFailed);
     }
   }
 
+  /**
+   * @deprecated please use setModelETag()
+   */
   protected setETag(uid: string, lastModified: Date, version = 0) {
-    this.setHeader('ETag', etag(uid, lastModified, version));
+    this.setModelETag(uid, lastModified, version);
+  }
+
+  protected setModelETag(uid: string, lastModified: Date, version = 0) {
+    this.setContentETag(etag(uid, lastModified, version), lastModified);
+  }
+
+  protected setContentETag(etag: string, lastModified?: Date) {
+    this.setHeader('ETag', etag.endsWith('"') ? etag : JSON.stringify(etag));
+    if (lastModified) {
+      this.setHeader('Last-Modified', lastModified.toString());
+    }
   }
 
   public abstract handle(...args: any[]): Promise<void>;

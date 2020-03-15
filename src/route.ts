@@ -155,7 +155,7 @@ export abstract class Route implements IRoute {
     let restrictExtraFields = true;
     if (typeof value === 'object' && Object.prototype.hasOwnProperty.call(value, 'raw')) {
       value = value.raw;
-      restrictExtraFields = true;
+      restrictExtraFields = false;
     }
 
     const isValid = validator.validate(value, {restrictExtraFields});

@@ -6,7 +6,7 @@ import {BadRequestError, RequestError} from './errors';
 import {StatusCode} from './status-code';
 
 interface IValidator<T> {
-  validate(value: T): true | string[];
+  validate(value: T, options?: {restrictExtraFields?: boolean}): true | string[];
 }
 
 function etag(uid: string, lastModified: Date, version= 0) {
@@ -152,11 +152,13 @@ export abstract class Route implements IRoute {
       })
     }
 
+    let restrictExtraFields = true;
     if (typeof value === 'object' && Object.prototype.hasOwnProperty.call(value, 'raw')) {
       value = value.raw;
+      restrictExtraFields = true;
     }
 
-    const isValid = validator.validate(value);
+    const isValid = validator.validate(value, {restrictExtraFields});
     if (isValid !== true) {
       throw new BadRequestError((message ?? 'Bad request')  + '\n' + isValid.join('\n'));
     }

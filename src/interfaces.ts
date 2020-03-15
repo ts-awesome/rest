@@ -1,7 +1,7 @@
-import { Request, Response } from 'express';
+import {Params, ParamsDictionary, Request, Response} from 'express-serve-static-core';
 import { Container } from 'inversify';
 
-export interface IHttpRequest extends Request {
+export interface IHttpRequest<P extends Params = ParamsDictionary> extends Request<P> {
   container: Container;
 }
 

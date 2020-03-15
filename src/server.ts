@@ -1,4 +1,4 @@
-import { Application, NextFunction, Request, Response } from 'express';
+import { Application, NextFunction, Request, Response } from 'express-serve-static-core';
 
 import { Container } from 'inversify';
 

@@ -5,9 +5,15 @@ import {Sanitizer} from './sanitizer';
 import {BadRequestError, RequestError} from './errors';
 import {StatusCode} from './status-code';
 
-interface IValidator<T> {
-  validate(value: T, options?: {restrictExtraFields?: boolean}): true | string[];
+interface ISimpleValidator<T> {
+  validate(value: T): true | string[];
 }
+
+interface IValidatorWithOptions<T, X> {
+  validate(value: T, options?: X & {restrictExtraFields?: boolean}): true | string[];
+}
+
+type IValidator<T> = ISimpleValidator<T> | IValidatorWithOptions<T, any>;
 
 function etag(uid: string, lastModified: Date, version= 0) {
   return JSON.stringify(new Buffer(`${uid}-${version}-${lastModified.getTime()}`).toString('base64'));
@@ -24,6 +30,7 @@ export abstract class Route implements IRoute {
 
   //TODO add protected redirect method
 
+  // noinspection JSUnusedGlobalSymbols
   protected empty(statusCode: number = StatusCode.NoContent): void {
     this.response
       .status(statusCode)
@@ -119,12 +126,14 @@ export abstract class Route implements IRoute {
     return this.isNewerContent(etag(uid, lastModified, version), lastModified);
   }
 
+  // noinspection JSUnusedGlobalSymbols
   protected ensureETag(uid: string, lastModified: Date, version = 0) {
     if (!this.isNewerModel(uid, lastModified, version)) {
       throw new RequestError(`Newer content found on server`, 'Precondition Failed', StatusCode.PreconditionFailed);
     }
   }
 
+  // noinspection JSUnusedGlobalSymbols
   /**
    * @deprecated please use setModelETag()
    */
@@ -144,8 +153,10 @@ export abstract class Route implements IRoute {
   }
 
   protected validate<T>(validator: IValidator<T>, value: T, message?: string): void;
+  protected validate<T, X>(validator: IValidatorWithOptions<T, X>, value: T, message?: string, options?: X): void;
   protected validate<T>(validator: IValidator<T>, value: T[], message?: string): void;
-  protected validate<T>(validator: IValidator<any>, value: any, message?: string): void {
+  protected validate<T, X>(validator: IValidatorWithOptions<T, X>, value: T[], message?: string, options?: X): void;
+  protected validate<T>(validator: IValidator<any>, value: any, message?: string, options: any = {}): void {
     if (Array.isArray(value)) {
       value.forEach(v => {
         this.validate(validator, v);
@@ -158,7 +169,7 @@ export abstract class Route implements IRoute {
       restrictExtraFields = false;
     }
 
-    const isValid = validator.validate(value, {restrictExtraFields});
+    const isValid = validator.validate(value, {restrictExtraFields, ...options});
     if (isValid !== true) {
       throw new BadRequestError((message ?? 'Bad request')  + '\n' + isValid.join('\n'));
     }

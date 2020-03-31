@@ -4,6 +4,7 @@ import {RequestSymbol, ResponseSymbol, SanitizerSymbol} from './symbols';
 import {Sanitizer} from './sanitizer';
 import {BadRequestError, RequestError} from './errors';
 import {StatusCode} from './status-code';
+import {createHash} from 'crypto';
 
 interface ISimpleValidator<T> {
   validate(value: T): true | string[];
@@ -19,6 +20,21 @@ function etag(uid: string, lastModified: Date, version= 0) {
   return JSON.stringify(new Buffer(`${uid}-${version}-${lastModified.getTime()}`).toString('base64'));
 }
 
+function sha256(data: string | Buffer): string {
+  return createHash('sha-256').update(data).digest().toString('hex');
+}
+
+function etagList(list: {uid: string; lastModified: Date; version?: number}[]): string {
+  let lastModified = new Date();
+  let uid = '';
+  for(const item of list) {
+    lastModified = lastModified > item.lastModified ? lastModified : item.lastModified;
+    uid += `,${etag(item.uid, item.lastModified, item.version ?? 0)}`
+  }
+
+  return etag(sha256(uid), lastModified, list.length);
+}
+
 @injectable()
 export abstract class Route implements IRoute {
 
@@ -32,6 +48,7 @@ export abstract class Route implements IRoute {
 
   // noinspection JSUnusedGlobalSymbols
   protected empty(statusCode: number = StatusCode.NoContent): void {
+    this.ensureCacheControl();
     this.response
       .status(statusCode)
       .end();
@@ -62,6 +79,7 @@ export abstract class Route implements IRoute {
     statusCode: StatusCode | number = StatusCode.OK,
     sanitizers?: (string | Sanitizer<unknown, unknown>)[]
   ): void {
+    this.ensureCacheControl();
     this.ensureRequestMedia('application/json');
     this.setHeader('Date', new Date().toUTCString());
 
@@ -77,6 +95,7 @@ export abstract class Route implements IRoute {
     content: TResponse,
     statusCode: StatusCode | number = StatusCode.OK,
   ): void {
+    this.ensureCacheControl();
     this.ensureRequestMedia('text/plain');
     this.setHeader('Date', new Date().toUTCString());
 
@@ -101,8 +120,15 @@ export abstract class Route implements IRoute {
     }
   }
 
+  protected ensureCacheControl() {
+    if (!this.response.headersSent) {
+      const cacheControl = this.response.cacheControl;
+      this.setHeader('Cache-Control', `${cacheControl?.type ?? 'no-cache'}, max-age=${cacheControl?.maxAge ?? 0}`)
+    }
+  }
+
   protected setHeader(name: string, value: string): this {
-    this.response.setHeader(name, value);
+    this.response.set(name, value);
     return this;
   }
 
@@ -127,6 +153,17 @@ export abstract class Route implements IRoute {
   }
 
   // noinspection JSUnusedGlobalSymbols
+  protected isNewerList(list: {uid: string; lastModified: Date; version?: number}[]) {
+    let lastModified = new Date();
+    for(const item of list) {
+      lastModified = lastModified > item.lastModified ? lastModified : item.lastModified;
+    }
+
+    const etag = etagList(list);
+    return this.isNewerContent(etag, lastModified);
+  }
+
+  // noinspection JSUnusedGlobalSymbols
   protected ensureETag(uid: string, lastModified: Date, version = 0) {
     if (!this.isNewerModel(uid, lastModified, version)) {
       throw new RequestError(`Newer content found on server`, 'Precondition Failed', StatusCode.PreconditionFailed);
@@ -143,6 +180,16 @@ export abstract class Route implements IRoute {
 
   protected setModelETag(uid: string, lastModified: Date, version = 0) {
     this.setContentETag(etag(uid, lastModified, version), lastModified);
+  }
+
+  // noinspection JSUnusedGlobalSymbols
+  protected setListETag(list: {uid: string; lastModified: Date; version?: number}[]) {
+    let lastModified = new Date();
+    for(const item of list) {
+      lastModified = lastModified > item.lastModified ? lastModified : item.lastModified;
+    }
+
+    this.setContentETag(etagList(list), lastModified);
   }
 
   protected setContentETag(etag: string, lastModified?: Date) {

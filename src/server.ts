@@ -47,6 +47,18 @@ function requireScopeBinder(app: Application, rootContainer: Container, requestC
 function registerRouter(app: Application, meta: RouteMetadata): void {
   app[meta.actionType](meta.path, async(async (req: IHttpRequest, res: IHttpResponse) => {
 
+    res.set('Cache-Control', `no-cache`);
+    res.cacheControl = meta.cachable ?? {
+      type: 'no-cache'
+    };
+
+    if (req.method === 'POST' || req.method === 'HEAD' || req.method === 'DELETE') {
+      res.set('Cache-Control', `no-store`);
+      res.cacheControl = {
+        type: 'no-store'
+      };
+    }
+
     const binds = meta.middlewares
       .map((Middleware: any) => {
         const tempSymbol = Symbol();

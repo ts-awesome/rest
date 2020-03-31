@@ -6,7 +6,12 @@ export interface IHttpRequest<P extends Params = ParamsDictionary> extends Reque
 }
 
 // eslint-disable-next-line @typescript-eslint/no-empty-interface
-export interface IHttpResponse extends Response {}
+export interface IHttpResponse extends Response {
+  cacheControl: {
+    type: 'no-store'|'no-cache'|'private'|'public'|'immutable';
+    maxAge?: number;
+  };
+}
 
 export interface IMiddleware {
   handle(req: IHttpRequest, res: IHttpResponse): Promise<void>;

@@ -15,6 +15,10 @@ export interface RouteMetadata {
   middlewares: any[];
   target: any;
   actionType: ActionType;
+  cachable?: {
+    type: 'no-store'|'no-cache'|'private'|'public'|'immutable';
+    maxAge?: number;
+  };
 }
 
 export interface ParameterMetadata {
@@ -51,12 +55,17 @@ export class RouteReflector {
     Reflect.defineMetadata(METADATA_KEY.route, [], Reflect);
   }
 
-  public static setRouteMetadata(target: any, currentMetadata: RouteMetadata): void {
+  public static setRouteMetadata(target: any, currentMetadata: Partial<RouteMetadata>): void {
+    const existingMetadata = Reflect.getMetadata(METADATA_KEY.route, target);
+    currentMetadata = {
+      ...existingMetadata,
+      ...currentMetadata
+    };
     Reflect.defineMetadata(METADATA_KEY.route, currentMetadata, target);
 
     const previousMetadata: RouteMetadata[] = RouteReflector.getRoutesMetadata();
 
-    const newMetadata = [currentMetadata, ...previousMetadata];
+    const newMetadata = [currentMetadata, ...previousMetadata.filter(x => x !== existingMetadata)];
 
     Reflect.defineMetadata(METADATA_KEY.route, newMetadata, Reflect);
   }

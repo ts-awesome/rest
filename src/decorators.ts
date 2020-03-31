@@ -18,6 +18,23 @@ export function route(actionType: ActionType, path: string, ...middlewares: any[
     return constructor;
   }
 }
+export function cacheControl(type: 'immutable', maxAge?: number): ClassDecorator;
+export function cacheControl(type: 'public', maxAge: number): ClassDecorator;
+export function cacheControl(type: 'private', maxAge: number): ClassDecorator;
+export function cacheControl(type: 'no-cache'): ClassDecorator;
+export function cacheControl(type: 'no-store'): ClassDecorator;
+export function cacheControl(type: 'no-store'|'no-cache'|'private'|'public'|'immutable' = 'no-store', maxAge = 0): ClassDecorator {
+  return (constructor: any) => {
+    RouteReflector.setRouteMetadata(constructor, {
+      target: constructor,
+      cachable: {
+        type,
+        maxAge
+      }
+    });
+    return constructor;
+  }
+}
 
 export function httpAll(path: string, ...middlewares: any[]): ClassDecorator {
   return route('all', path, ...middlewares);

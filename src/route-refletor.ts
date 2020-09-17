@@ -3,7 +3,7 @@ import {IHttpRequest} from "./interfaces";
 
 export type ActionType = 'post' | 'get' | 'put' | 'delete' | 'patch' | 'head' | 'all';
 
-export type ParameterType = 'QUERY_NAMED' | 'QUERY_MODEL' | 'REQUEST_NAMED' | 'BODY_MODEL' | 'HEADER_NAMED' | 'COOKIE_NAMED';
+export type ParameterType = 'QUERY_NAMED' | 'QUERY_MODEL' | 'REQUEST_NAMED' | 'BODY_NAMED' | 'BODY_MODEL' | 'HEADER_NAMED' | 'COOKIE_NAMED';
 
 export const METADATA_KEY = {
   route: Symbol.for('route'),

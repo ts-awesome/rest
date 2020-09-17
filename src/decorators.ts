@@ -106,6 +106,13 @@ export function queryParam<T>(name: string, ...args: any[]): ParameterDecorator 
   return params('QUERY_NAMED', name, model, nullable);
 }
 
+export function bodyParam<T>(name: string, model: T | [T], nullable?: true): ParameterDecorator;
+export function bodyParam<T>(name: string, nullable?: true): ParameterDecorator;
+export function bodyParam<T>(name: string, ...args: any[]): ParameterDecorator {
+  const [model, nullable] = parse(args);
+  return params('BODY_NAMED', name, model, nullable);
+}
+
 export function requestParam<T>(name: string, model?: T | [T], nullable?: true): ParameterDecorator;
 export function requestParam<T>(name: string, nullable?: true): ParameterDecorator;
 export function requestParam<T>(name: string, ...args: any[]): ParameterDecorator {

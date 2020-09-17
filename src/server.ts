@@ -101,6 +101,7 @@ function extractParameters(req: Request, params: ParameterMetadata[] = []): any[
           case 'QUERY_NAMED':   return getParam(req, 'query', injectRoot, parameterName);
           case 'QUERY_MODEL':   return req.query;
           case 'REQUEST_NAMED': return getParam(req, 'params', injectRoot, parameterName);
+          case 'BODY_NAMED':    return getParam(req, 'body', injectRoot, parameterName);
           case 'BODY_MODEL':    return req.body;
           case 'HEADER_NAMED':  return getParam(req, 'headers', injectRoot, parameterName);
           case 'COOKIE_NAMED':  return getParam(req, 'cookies', injectRoot, parameterName);
@@ -111,7 +112,7 @@ function extractParameters(req: Request, params: ParameterMetadata[] = []): any[
     });
 }
 
-function getParam(source: Request, paramType: 'query'|'params'|'headers'|'cookies', injectRoot: boolean, name?: string | symbol): string {
+function getParam(source: Request, paramType: 'query'|'params'|'headers'|'cookies'|'body', injectRoot: boolean, name?: string | symbol): string {
   if (paramType === 'headers' && typeof name === 'string') {
     name = name.toLowerCase();
   }

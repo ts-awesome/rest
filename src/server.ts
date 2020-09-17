@@ -47,6 +47,10 @@ function requireScopeBinder(app: Application, rootContainer: Container, requestC
 function registerRouter(app: Application, meta: RouteMetadata): void {
   app[meta.actionType](meta.path, async(async (req: IHttpRequest, res: IHttpResponse) => {
 
+    if (typeof meta.matcher === 'function' && meta.matcher(req) !== true) {
+      return;
+    }
+
     res.set('Cache-Control', `no-cache`);
     res.cacheControl = meta.cachable ?? {
       type: 'no-cache'

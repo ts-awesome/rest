@@ -1,4 +1,5 @@
 import "reflect-metadata";
+import {IHttpRequest} from "./interfaces";
 
 export type ActionType = 'post' | 'get' | 'put' | 'delete' | 'patch' | 'head' | 'all';
 
@@ -10,6 +11,10 @@ export const METADATA_KEY = {
   middleware: Symbol.for('middleware')
 };
 
+export interface MatcherDelegate {
+  (req: IHttpRequest): boolean;
+}
+
 export interface RouteMetadata {
   path: string;
   middlewares: any[];
@@ -19,6 +24,7 @@ export interface RouteMetadata {
     type: 'no-store'|'no-cache'|'private'|'public'|'immutable';
     maxAge?: number;
   };
+  matcher: MatcherDelegate | null;
 }
 
 export interface ParameterMetadata {

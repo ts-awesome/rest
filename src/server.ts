@@ -19,7 +19,7 @@ export default function (app: Application, rootContainer: Container, requestCont
 
   const middlewaresMetadata = RouteReflector
     .getMiddlewaresMetadata()
-    .sort(meta => meta.priority);
+    .sort((a, b) => b.priority - a.priority);
 
   middlewaresMetadata
     .filter(meta => meta.priority >= 0)

@@ -26,6 +26,6 @@ publish:
   - npm run build
   - npm run test
   - npm --no-git-tag-version version ${CI_COMMIT_TAG}
-  - npm publish
+  - npm publish --access public
   variables:
     NPM_TOKEN: ${NPM_TOKEN}

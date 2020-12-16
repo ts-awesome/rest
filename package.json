@@ -10,7 +10,7 @@
     "test": "echo \"Error: no test specified\""
   },
   "author": "Volodymyr Iatsyshyn <viatsyshyn@gmail.com>",
-  "license": "ISC",
+  "license": "MIT",
   "peerDependencies": {
     "inversify": "^5.0.0",
     "express": "~4.17.0"

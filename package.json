@@ -16,7 +16,7 @@
     "express": "~4.17.0"
   },
   "dependencies": {
-    "@viatsyshyn/ts-model-reader": "~0.1.7",
+    "@ts-awesome/model-reader": "^1.0.0",
     "@types/express-serve-static-core": "~4.17.2",
     "reflect-metadata": "^0.1.13"
   },
@@ -27,6 +27,7 @@
     "@typescript-eslint/parser": "^2.16.0",
     "eslint": "^6.8.0",
     "typescript": "^3.9.6",
-    "inversify": "^5.0.1"
+    "inversify": "^5.0.1",
+    "express": "~4.17.0"
   }
 }

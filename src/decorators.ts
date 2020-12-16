@@ -1,5 +1,5 @@
 import { injectable, decorate } from 'inversify';
-import reader, {proxied} from '@viatsyshyn/ts-model-reader';
+import reader, {proxied} from '@ts-awesome/model-reader';
 
 import {RouteReflector, ActionType, ParameterType, ParameterMetadata, MatcherDelegate} from './route-refletor';
 

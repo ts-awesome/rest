@@ -5,6 +5,7 @@ import {Sanitizer} from './sanitizer';
 import {BadRequestError, RequestError} from './errors';
 import {StatusCode} from './status-code';
 import {createHash} from 'crypto';
+import {Readable} from 'stream';
 
 interface ISimpleValidator<T> {
   validate(value: T): true | string[];
@@ -44,7 +45,11 @@ export abstract class Route implements IRoute {
   @inject(ResponseSymbol)
   protected readonly response!: IHttpResponse;
 
-  //TODO add protected redirect method
+  // noinspection JSUnusedGlobalSymbols
+  protected redirect(url: string, statusCode: number = StatusCode.TemporaryRedirect): void {
+    this.ensureCacheControl();
+    this.response.redirect(statusCode, url);
+  }
 
   // noinspection JSUnusedGlobalSymbols
   protected empty(statusCode: number = StatusCode.NoContent): void {
@@ -52,26 +57,6 @@ export abstract class Route implements IRoute {
     this.response
       .status(statusCode)
       .end();
-  }
-
-  protected sanitize<T, X = unknown>(objs: T[], sanitizers?: (string|symbol|Sanitizer<T, unknown>)[]): X[] {
-    const container = this.request.container;
-    if (container.isBound(SanitizerSymbol)) {
-      sanitizers = sanitizers ?? container.getAll<Sanitizer<T, any>>(SanitizerSymbol);
-    }
-
-    if (!Array.isArray(sanitizers)) {
-      return objs as any;
-    }
-
-    const resolved: Sanitizer<unknown, unknown>[] = sanitizers
-      .map(s => typeof s === 'function'
-        ? s as Sanitizer<unknown, unknown>
-        : container.getNamed<Sanitizer<unknown, unknown>>(SanitizerSymbol, s));
-
-    const sanitizer: Sanitizer<T, unknown> = (x: unknown) => resolved.reduce((acc, op) => op(acc), x);
-
-    return objs.map(sanitizer) as any;
   }
 
   protected json<TResponse>(
@@ -106,6 +91,55 @@ export abstract class Route implements IRoute {
       .end();
   }
 
+  // noinspection JSUnusedGlobalSymbols
+  protected stream<TResponse extends Readable>(
+    content: TResponse,
+    size?: number,
+    contentType = 'application/octet-stream',
+    statusCode: StatusCode | number = StatusCode.OK,
+  ): Promise<void> {
+    this.ensureCacheControl();
+    this.ensureRequestMedia(contentType);
+    if (size != null) {
+      this.setHeader('Content-Length', size.toString());
+    }
+
+    this.setHeader('Date', new Date().toUTCString());
+
+    this.response
+      .status(statusCode ?? 200)
+      .type(contentType)
+
+    return new Promise((resolve, reject) => {
+      content
+        .pipe(this.response)
+        .once('finish', resolve)
+        .on('error', reject);
+    })
+  }
+
+  // noinspection JSUnusedGlobalSymbols
+  protected sanitize<T, X = unknown>(objs: T[], sanitizers?: (string|symbol|Sanitizer<T, unknown>)[]): X[] {
+    const container = this.request.container;
+    if (container.isBound(SanitizerSymbol)) {
+      sanitizers = sanitizers ?? container.getAll<Sanitizer<T, any>>(SanitizerSymbol);
+    }
+
+    if (!Array.isArray(sanitizers)) {
+      return objs as any;
+    }
+
+    const resolved: Sanitizer<unknown, unknown>[] = sanitizers
+      .map(s => typeof s === 'function'
+        ? s as Sanitizer<unknown, unknown>
+        : container.getNamed<Sanitizer<unknown, unknown>>(SanitizerSymbol, s));
+
+    const sanitizer: Sanitizer<T, unknown> = (x: unknown) => resolved.reduce((acc, op) => op(acc), x);
+
+    return objs.map(sanitizer) as any;
+  }
+
+  // noinspection JSUnusedGlobalSymbols
   protected ensureRequestMedia(expected: string): void {
     const { accept } = this.request.headers;
     if (typeof accept !== 'string' || accept.indexOf('*/*') >= 0) {
@@ -120,6 +154,7 @@ export abstract class Route implements IRoute {
     }
   }
 
+  // noinspection JSUnusedGlobalSymbols
   protected ensureCacheControl() {
     if (!this.response.headersSent) {
       const cacheControl = this.response.cacheControl;
@@ -127,11 +162,13 @@ export abstract class Route implements IRoute {
     }
   }
 
+  // noinspection JSUnusedGlobalSymbols
   protected setHeader(name: string, value: string): this {
     this.response.set(name, value);
     return this;
   }
 
+  // noinspection JSUnusedGlobalSymbols
   protected isNewerContent(etag: string, lastModified?: Date): boolean {
     const ifNoneMatch = this.request.header('If-None-Match');
     if (typeof ifNoneMatch === 'string') {
@@ -148,6 +185,7 @@ export abstract class Route implements IRoute {
     return true;
   }
 
+  // noinspection JSUnusedGlobalSymbols
   protected isNewerModel(uid: string, lastModified: Date, version = 0) {
     return this.isNewerContent(etag(uid, lastModified, version), lastModified);
   }
@@ -178,6 +216,7 @@ export abstract class Route implements IRoute {
     this.setModelETag(uid, lastModified, version);
   }
 
+  // noinspection JSUnusedGlobalSymbols
   protected setModelETag(uid: string, lastModified: Date, version = 0) {
     this.setContentETag(etag(uid, lastModified, version), lastModified);
   }
@@ -192,6 +231,7 @@ export abstract class Route implements IRoute {
     this.setContentETag(etagList(list), lastModified);
   }
 
+  // noinspection JSUnusedGlobalSymbols
   protected setContentETag(etag: string, lastModified?: Date) {
     this.setHeader('ETag', etag.endsWith('"') ? etag : JSON.stringify(etag));
     if (lastModified) {
@@ -199,6 +239,7 @@ export abstract class Route implements IRoute {
     }
   }
 
+  // noinspection JSUnusedGlobalSymbols
   protected validate<T>(validator: IValidator<T>, value: T, message?: string): void;
   protected validate<T, X>(validator: IValidatorWithOptions<T, X>, value: T, message?: string, options?: X): void;
   protected validate<T>(validator: IValidator<T>, value: T[], message?: string): void;

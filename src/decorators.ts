@@ -60,7 +60,7 @@ export function httpPatch(path: string, ...middlewares: any[]): ClassDecorator {
 }
 
 export function params<T>(type: ParameterType, parameterName?: string, Model?: T | [T], nullable?: boolean): ParameterDecorator {
-  return (target: Object, methodName: string | symbol, index: number) => {
+  return (target: any, methodName: string | symbol, index: number) => {
 
     if (methodName !== ROUTER_HANDLE_ACTION_NAME) {
       throw new Error(`Invalid route method. Current decorator can only be added on ${ROUTER_HANDLE_ACTION_NAME}`);
@@ -99,45 +99,47 @@ function parse(args: any[]): [any, boolean] {
   return [model, nullable];
 }
 
-export function queryParam<T>(name: string, model: T | [T], nullable?: true): ParameterDecorator;
-export function queryParam<T>(name: string, nullable?: true): ParameterDecorator;
-export function queryParam<T>(name: string, ...args: any[]): ParameterDecorator {
+type Class<T=any> = new (...arg: any[]) => T;
+
+export function queryParam<T extends Class>(name: string, model: T | [T], nullable?: true): ParameterDecorator;
+export function queryParam(name: string, nullable?: true): ParameterDecorator;
+export function queryParam(name: string, ...args: any[]): ParameterDecorator {
   const [model, nullable] = parse(args);
   return params('QUERY_NAMED', name, model, nullable);
 }
 
-export function bodyParam<T>(name: string, model: T | [T], nullable?: true): ParameterDecorator;
-export function bodyParam<T>(name: string, nullable?: true): ParameterDecorator;
-export function bodyParam<T>(name: string, ...args: any[]): ParameterDecorator {
+export function bodyParam<T extends Class>(name: string, model: T | [T], nullable?: true): ParameterDecorator;
+export function bodyParam(name: string, nullable?: true): ParameterDecorator;
+export function bodyParam(name: string, ...args: any[]): ParameterDecorator {
   const [model, nullable] = parse(args);
   return params('BODY_NAMED', name, model, nullable);
 }
 
-export function requestParam<T>(name: string, model?: T | [T], nullable?: true): ParameterDecorator;
-export function requestParam<T>(name: string, nullable?: true): ParameterDecorator;
-export function requestParam<T>(name: string, ...args: any[]): ParameterDecorator {
+export function requestParam<T extends Class>(name: string, model?: T | [T], nullable?: true): ParameterDecorator;
+export function requestParam(name: string, nullable?: true): ParameterDecorator;
+export function requestParam(name: string, ...args: any[]): ParameterDecorator {
   const [model, nullable] = parse(args);
   return params('REQUEST_NAMED', name, model, nullable);
 }
 
-export function headerParam<T>(name: string, model?: T | [T], nullable?: true): ParameterDecorator;
-export function headerParam<T>(name: string, nullable?: true): ParameterDecorator;
-export function headerParam<T>(name: string, ...args: any[]): ParameterDecorator {
+export function headerParam<T extends Class>(name: string, model?: T | [T], nullable?: true): ParameterDecorator;
+export function headerParam(name: string, nullable?: true): ParameterDecorator;
+export function headerParam(name: string, ...args: any[]): ParameterDecorator {
   const [model, nullable] = parse(args);
   return params('HEADER_NAMED', name, model, nullable);
 }
 
-export function cookieParam<T>(name: string, model?: T | [T], nullable?: true): ParameterDecorator;
-export function cookieParam<T>(name: string, nullable?: true): ParameterDecorator;
-export function cookieParam<T>(name: string, ...args: any[]): ParameterDecorator {
+export function cookieParam<T extends Class>(name: string, model?: T | [T], nullable?: true): ParameterDecorator;
+export function cookieParam(name: string, nullable?: true): ParameterDecorator;
+export function cookieParam(name: string, ...args: any[]): ParameterDecorator {
   const [model, nullable] = parse(args);
   return params('COOKIE_NAMED', name, model, nullable);
 }
 
-export function queryModel<T>(model: T, nullable?: true): ParameterDecorator;
-export function queryModel<T>(nullable?: true): ParameterDecorator;
+export function queryModel<T extends Class>(model: T, nullable?: true): ParameterDecorator;
+export function queryModel(nullable?: true): ParameterDecorator;
 export function queryModel(target: Object, methodName: string | symbol, index: number): void;
-export function queryModel(...args: any): ParameterDecorator | void {
+export function queryModel(...args: any[]): ParameterDecorator | void {
   if (args.length === 3) {
     const [target, key, index] = args;
     return params('QUERY_MODEL')(target, key, index);
@@ -147,11 +149,10 @@ export function queryModel(...args: any): ParameterDecorator | void {
   return params('QUERY_MODEL', undefined, Model, nullable);
 }
 
-export function requestBody<T>(model: [T], nullable?: true): ParameterDecorator;
-export function requestBody<T>(model: T, nullable?: true): ParameterDecorator;
-export function requestBody<T>(nullable?: true): ParameterDecorator;
+export function requestBody<T extends Class>(model: T | [T], nullable?: true): ParameterDecorator;
+export function requestBody(nullable?: true): ParameterDecorator;
 export function requestBody(target: Object, methodName: string | symbol, index: number): void;
-export function requestBody(...args: any): ParameterDecorator | void {
+export function requestBody(...args: any[]): ParameterDecorator | void {
   if (args.length === 3) {
     const [target, key, index] = args;
     return params('BODY_MODEL')(target, key, index);
@@ -162,7 +163,7 @@ export function requestBody(...args: any): ParameterDecorator | void {
 }
 
 export function middleware(priority: number, path = '*', actionType: ActionType = 'all'): ClassDecorator {
-  return (target: Object) => {
+  return <TFunction extends Function>(target: TFunction): TFunction | void => {
     decorate(injectable(), target);
 
     RouteReflector.setMiddlewareMeta(target, {

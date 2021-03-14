@@ -3,11 +3,11 @@ stages:
 - publish
 
 before_script:
-- npm install
+- npm ci
 
 build:
   stage: build
-  image: node:12
+  image: node:14
   only:
   - master
   - develop
@@ -18,7 +18,7 @@ build:
 
 publish:
   stage: publish
-  image: node:12
+  image: node:14
   only:
   - tags
   script:

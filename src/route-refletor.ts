@@ -49,11 +49,11 @@ export class RouteReflector {
     return RouteReflector.getRoutesMetadata().map((metadata) => metadata.target);
   }
 
-  public static getRouteMetadata(constructor: any): RouteMetadata {
+  public static getRouteMetadata(constructor: Object): RouteMetadata {
     return Reflect.getMetadata(METADATA_KEY.route, constructor);
   }
 
-  public static getRouteParametersMetadata(constructor: any): ParameterMetadata[] {
+  public static getRouteParametersMetadata(constructor: Object): ParameterMetadata[] {
     return Reflect.getMetadata(METADATA_KEY.parameter, constructor);
   }
 
@@ -61,7 +61,7 @@ export class RouteReflector {
     Reflect.defineMetadata(METADATA_KEY.route, [], Reflect);
   }
 
-  public static setRouteMetadata(target: any, currentMetadata: Partial<RouteMetadata>): void {
+  public static setRouteMetadata(target: Object, currentMetadata: Partial<RouteMetadata>): void {
     const existingMetadata = Reflect.getMetadata(METADATA_KEY.route, target);
     currentMetadata = {
       ...existingMetadata,
@@ -76,7 +76,7 @@ export class RouteReflector {
     Reflect.defineMetadata(METADATA_KEY.route, newMetadata, Reflect);
   }
 
-  public static addRouteParameterMetadata(constructor: any, metadata: ParameterMetadata): void {
+  public static addRouteParameterMetadata(constructor: Object, metadata: ParameterMetadata): void {
     let parameterMetadataList: ParameterMetadata[] = [];
     if (Reflect.hasMetadata(METADATA_KEY.parameter, constructor)) {
       parameterMetadataList = Reflect.getMetadata(METADATA_KEY.parameter, constructor);
@@ -85,7 +85,7 @@ export class RouteReflector {
     Reflect.defineMetadata(METADATA_KEY.parameter, parameterMetadataList, constructor);
   }
 
-  public static setMiddlewareMeta(constructor: any, metadata: MiddlewareMetadata): void {
+  public static setMiddlewareMeta(constructor: Object, metadata: MiddlewareMetadata): void {
     Reflect.defineMetadata(METADATA_KEY.middleware, metadata, constructor);
 
     const previousMetadata: MiddlewareMetadata[] = RouteReflector.getMiddlewaresMetadata();
@@ -93,7 +93,7 @@ export class RouteReflector {
     Reflect.defineMetadata(METADATA_KEY.middleware, newMetadata, Reflect);
   }
 
-  public static getMiddlewareMeta(constructor: any): MiddlewareMetadata {
+  public static getMiddlewareMeta(constructor: Object): MiddlewareMetadata {
     return Reflect.getMetadata(METADATA_KEY.middleware, constructor);
   }
 

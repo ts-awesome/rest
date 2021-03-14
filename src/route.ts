@@ -155,7 +155,7 @@ export abstract class Route implements IRoute {
   }
 
   // noinspection JSUnusedGlobalSymbols
-  protected ensureCacheControl() {
+  protected ensureCacheControl(): void {
     if (!this.response.headersSent) {
       const cacheControl = this.response.cacheControl;
       this.setHeader('Cache-Control', `${cacheControl?.type ?? 'no-cache'}, max-age=${cacheControl?.maxAge ?? 0}`)
@@ -186,12 +186,12 @@ export abstract class Route implements IRoute {
   }
 
   // noinspection JSUnusedGlobalSymbols
-  protected isNewerModel(uid: string, lastModified: Date, version = 0) {
+  protected isNewerModel(uid: string, lastModified: Date, version = 0): boolean {
     return this.isNewerContent(etag(uid, lastModified, version), lastModified);
   }
 
   // noinspection JSUnusedGlobalSymbols
-  protected isNewerList(list: {uid: string; lastModified: Date; version?: number}[]) {
+  protected isNewerList(list: {uid: string; lastModified: Date; version?: number}[]): boolean {
     let lastModified = new Date();
     for(const item of list) {
       lastModified = lastModified > item.lastModified ? lastModified : item.lastModified;
@@ -202,7 +202,7 @@ export abstract class Route implements IRoute {
   }
 
   // noinspection JSUnusedGlobalSymbols
-  protected ensureETag(uid: string, lastModified: Date, version = 0) {
+  protected ensureETag(uid: string, lastModified: Date, version = 0): void {
     if (!this.isNewerModel(uid, lastModified, version)) {
       throw new RequestError(`Newer content found on server`, 'Precondition Failed', StatusCode.PreconditionFailed);
     }
@@ -212,17 +212,17 @@ export abstract class Route implements IRoute {
   /**
    * @deprecated please use setModelETag()
    */
-  protected setETag(uid: string, lastModified: Date, version = 0) {
+  protected setETag(uid: string, lastModified: Date, version = 0): void {
     this.setModelETag(uid, lastModified, version);
   }
 
   // noinspection JSUnusedGlobalSymbols
-  protected setModelETag(uid: string, lastModified: Date, version = 0) {
+  protected setModelETag(uid: string, lastModified: Date, version = 0): void {
     this.setContentETag(etag(uid, lastModified, version), lastModified);
   }
 
   // noinspection JSUnusedGlobalSymbols
-  protected setListETag(list: {uid: string; lastModified: Date; version?: number}[]) {
+  protected setListETag(list: {uid: string; lastModified: Date; version?: number}[]): void {
     let lastModified = new Date();
     for(const item of list) {
       lastModified = lastModified > item.lastModified ? lastModified : item.lastModified;
@@ -232,7 +232,7 @@ export abstract class Route implements IRoute {
   }
 
   // noinspection JSUnusedGlobalSymbols
-  protected setContentETag(etag: string, lastModified?: Date) {
+  protected setContentETag(etag: string, lastModified?: Date): void {
     this.setHeader('ETag', etag.endsWith('"') ? etag : JSON.stringify(etag));
     if (lastModified) {
       this.setHeader('Last-Modified', lastModified.toString());
@@ -244,7 +244,7 @@ export abstract class Route implements IRoute {
   protected validate<T, X>(validator: IValidatorWithOptions<T, X>, value: T, message?: string, options?: X): void;
   protected validate<T>(validator: IValidator<T>, value: T[], message?: string): void;
   protected validate<T, X>(validator: IValidatorWithOptions<T, X>, value: T[], message?: string, options?: X): void;
-  protected validate<T>(validator: IValidator<any>, value: any, message?: string, options: any = {}): void {
+  protected validate(validator: IValidator<any>, value: unknown, message?: string, options: any = {}): void {
     if (Array.isArray(value)) {
       value.forEach(v => {
         this.validate(validator, v);
@@ -252,7 +252,7 @@ export abstract class Route implements IRoute {
     }
 
     let restrictExtraFields = true;
-    if (typeof value === 'object' && Object.prototype.hasOwnProperty.call(value, 'raw')) {
+    if (typeof value === 'object' && value != null && hasOwnProperty(value, 'raw')) {
       value = value.raw;
       restrictExtraFields = false;
     }
@@ -264,4 +264,8 @@ export abstract class Route implements IRoute {
   }
 
   public abstract handle(...args: any[]): Promise<void>;
+}
+
+function hasOwnProperty<X extends {}, Y extends PropertyKey>(obj: X, prop: Y): obj is X & Record<Y, unknown> {
+  return Object.prototype.hasOwnProperty.call(obj, prop);
 }

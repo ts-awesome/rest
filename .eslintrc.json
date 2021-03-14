@@ -17,7 +17,6 @@
     "@typescript-eslint/eslint-plugin"
   ],
   "rules": {
-    "no-dupe-class-members": "off",
     "@typescript-eslint/interface-name-prefix": "off",
     "@typescript-eslint/no-explicit-any": "off",
     "@typescript-eslint/ban-types": "off",

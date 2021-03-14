@@ -68,17 +68,6 @@
       "es2019",
       "es2020"
     ],
-
-    "plugins": [
-      {
-        "transform": "typescript-plugin-styled-components",
-        "type": "config",
-
-        // other typescript-plugin-styled-components options can be added here
-        "minify": true,
-        "ssr": true
-      }
-    ]
   },
-  "exclude": ["./bin", "./dist", "./node_modules/**", "./test", "./index.js", "./gulpfile.js", "ecosystem.config.js"]
+  "exclude": ["./bin", "./dist", "./node_modules/**", "./test", "./*.js"]
 }

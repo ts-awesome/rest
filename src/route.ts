@@ -46,6 +46,7 @@ export abstract class Route implements IRoute {
   protected readonly response!: IHttpResponse;
 
   // noinspection JSUnusedGlobalSymbols
+  protected redirect(url: string): void;
   protected redirect(url: string, statusCode: number): void;
   protected redirect(url: string, html: true): void;
   protected redirect(url: string, statusCode: boolean | number = StatusCode.TemporaryRedirect): void {

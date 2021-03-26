@@ -5,7 +5,7 @@ import {Sanitizer} from './sanitizer';
 import {BadRequestError, RequestError} from './errors';
 import {StatusCode} from './status-code';
 import {createHash} from 'crypto';
-import {Readable} from 'stream';
+import {pipeline, Readable} from 'stream';
 
 interface ISimpleValidator<T> {
   validate(value: T): true | string[];
@@ -46,8 +46,25 @@ export abstract class Route implements IRoute {
   protected readonly response!: IHttpResponse;
 
   // noinspection JSUnusedGlobalSymbols
-  protected redirect(url: string, statusCode: number = StatusCode.TemporaryRedirect): void {
+  protected redirect(url: string, statusCode: number): void;
+  protected redirect(url: string, html: true): void;
+  protected redirect(url: string, statusCode: boolean | number = StatusCode.TemporaryRedirect): void {
     this.ensureCacheControl();
+
+    if (statusCode === true) {
+      this.response
+        .status(StatusCode.OK)
+        .send(`<!DOCTYPE html><html lang="en">
+<head><meta http-equiv="refresh" content="0; URL=${url}" /><title>Redirecting...</title></head>
+<body><p>If you are not redirected, <a href="${url}">click here</a>.</p></body></html>`)
+        .end();
+      return;
+    }
+
+    if (typeof statusCode !== 'number') {
+      throw new Error(`Unexpected status code ${JSON.stringify(statusCode)}`)
+    }
+
     this.response.redirect(statusCode, url);
   }
 
@@ -111,10 +128,11 @@ export abstract class Route implements IRoute {
       .type(contentType)
 
     return new Promise((resolve, reject) => {
-      content
-        .pipe(this.response)
-        .once('finish', resolve)
-        .on('error', reject);
+      pipeline(
+        content,
+        this.response,
+        (e) => { e ? reject(e) : resolve() }
+      );
     })
   }
 

@@ -90,34 +90,30 @@ export abstract class Route implements IRoute {
   }
 
   // noinspection JSUnusedGlobalSymbols
-  protected jsonAsync<TResponse extends Record<string, unknown>>(content: Promise<TResponse>, statusCode?: StatusCode): Promise<void>;
-  protected jsonAsync<TResponse extends Record<string, unknown>>(content: Promise<readonly TResponse[]>, statusCode?: StatusCode): Promise<void>;
-  protected jsonAsync<TResponse extends Record<string, unknown>>(content: Promise<TResponse>, Model: Class): Promise<void>;
-  protected jsonAsync<TResponse extends Record<string, unknown>>(content: Promise<readonly TResponse[]>, Model: [Class]): Promise<void>;
+  protected jsonAsync(content: Promise<readonly unknown[]>, statusCode?: StatusCode): Promise<void>;
+  protected jsonAsync(content: Promise<unknown>, statusCode?: StatusCode): Promise<void>;
+  protected jsonAsync(content: Promise<readonly unknown[]>, Model: [Class]): Promise<void>;
+  protected jsonAsync(content: Promise<unknown>, Model: Class): Promise<void>;
+  protected jsonAsync(content: Promise<readonly unknown[]>, statusCode: StatusCode, Model: [Class]): Promise<void>;
+  protected jsonAsync(content: Promise<unknown>, statusCode: StatusCode, Model: Class): Promise<void>;
   /** @deprecated */
-  protected jsonAsync<TResponse extends Record<string, unknown>>(content: Promise<TResponse>, sanitizers: (string | Sanitizer<unknown, unknown>)[]): Promise<void>;
-  protected jsonAsync<TResponse extends Record<string, unknown>>(content: Promise<TResponse>, statusCode: StatusCode, Model: Class): Promise<void>;
-  protected jsonAsync<TResponse extends Record<string, unknown>>(content: Promise<readonly TResponse[]>, statusCode: StatusCode, Model: [Class]): Promise<void>;
+  protected jsonAsync(content: Promise<unknown>, sanitizers: (string | Sanitizer<unknown, unknown>)[]): Promise<void>;
   /** @deprecated */
-  protected jsonAsync<TResponse extends Record<string, unknown>>(content: Promise<TResponse>, statusCode: StatusCode, sanitizers: (string | Sanitizer<unknown, unknown>)[]): Promise<void>;
+  protected jsonAsync(content: Promise<unknown>, statusCode: StatusCode, sanitizers: (string | Sanitizer<unknown, unknown>)[]): Promise<void>;
   protected async jsonAsync(promise: Promise<any>, ...args: unknown[]): Promise<void> {
     return this.json(await promise, ...args as any);
   }
 
   // noinspection JSUnusedGlobalSymbols
-  protected json(content: number, statusCode?: StatusCode): void;
-  protected json(content: string, statusCode?: StatusCode): void;
-  protected json(content: boolean, statusCode?: StatusCode): void;
-  protected json<TResponse extends Record<string, unknown>>(content: TResponse, statusCode?: StatusCode): void;
-  protected json<TResponse extends Record<string, unknown>>(content: readonly TResponse[], statusCode?: StatusCode): void;
-  protected json<TResponse extends Record<string, unknown>>(content: TResponse, Model: Class): void;
-  protected json<TResponse extends Record<string, unknown>>(content: readonly TResponse[], Model: [Class]): void;
+  protected json(content: readonly unknown[], Model: [Class]): void;
+  protected json(content: unknown, Model: Class): void;
+  protected json(content: readonly unknown[], statusCode: StatusCode, Model: [Class]): void;
+  protected json(content: unknown, statusCode: StatusCode, Model: Class): void;
+  protected json(content: unknown, statusCode?: StatusCode): void;
   /** @deprecated */
-  protected json<TResponse extends Record<string, unknown>>(content: TResponse, sanitizers: (string | Sanitizer<unknown, unknown>)[]): void;
-  protected json<TResponse extends Record<string, unknown>>(content: TResponse, statusCode: StatusCode, Model?: Class): void;
-  protected json<TResponse extends Record<string, unknown>>(content: readonly TResponse[], statusCode: StatusCode, Model?: [Class]): void;
+  protected json(content: unknown, sanitizers: (string | Sanitizer<unknown, unknown>)[]): void;
   /** @deprecated */
-  protected json<TResponse extends Record<string, unknown>>(content: TResponse, statusCode: StatusCode, sanitizers: (string | Sanitizer<unknown, unknown>)[]): void;
+  protected json(content: unknown, statusCode: StatusCode, sanitizers: (string | Sanitizer<unknown, unknown>)[]): void;
   protected json(content: unknown, ...args: unknown[]): void {
     if (content instanceof Promise) {
       throw new Error(`Please use jsonAsync() for async content`);

@@ -90,12 +90,13 @@ export abstract class Route implements IRoute {
   }
 
   // noinspection JSUnusedGlobalSymbols
-  protected jsonAsync<TResponse extends Record<string, unknown>>(content: Promise<TResponse>, Model?: Class): Promise<void>;
-  protected jsonAsync<TResponse extends Record<string, unknown>>(content: Promise<readonly TResponse[]>, Model?: [Class]): Promise<void>;
+  protected jsonAsync<TResponse extends Record<string, unknown>>(content: Promise<TResponse>, statusCode?: StatusCode): Promise<void>;
+  protected jsonAsync<TResponse extends Record<string, unknown>>(content: Promise<TResponse>, Model: Class): Promise<void>;
+  protected jsonAsync<TResponse extends Record<string, unknown>>(content: Promise<readonly TResponse[]>, Model: [Class]): Promise<void>;
   /** @deprecated */
   protected jsonAsync<TResponse extends Record<string, unknown>>(content: Promise<TResponse>, sanitizers: (string | Sanitizer<unknown, unknown>)[]): Promise<void>;
-  protected jsonAsync<TResponse extends Record<string, unknown>>(content: Promise<TResponse>, statusCode: StatusCode, Model?: Class): Promise<void>;
-  protected jsonAsync<TResponse extends Record<string, unknown>>(content: Promise<readonly TResponse[]>, statusCode: StatusCode, Model?: [Class]): Promise<void>;
+  protected jsonAsync<TResponse extends Record<string, unknown>>(content: Promise<TResponse>, statusCode: StatusCode, Model: Class): Promise<void>;
+  protected jsonAsync<TResponse extends Record<string, unknown>>(content: Promise<readonly TResponse[]>, statusCode: StatusCode, Model: [Class]): Promise<void>;
   /** @deprecated */
   protected jsonAsync<TResponse extends Record<string, unknown>>(content: Promise<TResponse>, statusCode: StatusCode, sanitizers: (string | Sanitizer<unknown, unknown>)[]): Promise<void>;
   protected async jsonAsync(promise: Promise<any>, ...args: unknown[]): Promise<void> {
@@ -106,8 +107,9 @@ export abstract class Route implements IRoute {
   protected json(content: number, statusCode?: StatusCode): void;
   protected json(content: string, statusCode?: StatusCode): void;
   protected json(content: boolean, statusCode?: StatusCode): void;
-  protected json<TResponse extends Record<string, unknown>>(content: TResponse, Model?: Class): void;
-  protected json<TResponse extends Record<string, unknown>>(content: readonly TResponse[], Model?: [Class]): void;
+  protected json<TResponse extends Record<string, unknown>>(content: TResponse, statusCode?: StatusCode): void;
+  protected json<TResponse extends Record<string, unknown>>(content: TResponse, Model: Class): void;
+  protected json<TResponse extends Record<string, unknown>>(content: readonly TResponse[], Model: [Class]): void;
   /** @deprecated */
   protected json<TResponse extends Record<string, unknown>>(content: TResponse, sanitizers: (string | Sanitizer<unknown, unknown>)[]): void;
   protected json<TResponse extends Record<string, unknown>>(content: TResponse, statusCode: StatusCode, Model?: Class): void;

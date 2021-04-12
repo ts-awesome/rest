@@ -91,6 +91,7 @@ export abstract class Route implements IRoute {
 
   // noinspection JSUnusedGlobalSymbols
   protected jsonAsync<TResponse extends Record<string, unknown>>(content: Promise<TResponse>, statusCode?: StatusCode): Promise<void>;
+  protected jsonAsync<TResponse extends Record<string, unknown>>(content: Promise<readonly TResponse[]>, statusCode?: StatusCode): Promise<void>;
   protected jsonAsync<TResponse extends Record<string, unknown>>(content: Promise<TResponse>, Model: Class): Promise<void>;
   protected jsonAsync<TResponse extends Record<string, unknown>>(content: Promise<readonly TResponse[]>, Model: [Class]): Promise<void>;
   /** @deprecated */
@@ -108,6 +109,7 @@ export abstract class Route implements IRoute {
   protected json(content: string, statusCode?: StatusCode): void;
   protected json(content: boolean, statusCode?: StatusCode): void;
   protected json<TResponse extends Record<string, unknown>>(content: TResponse, statusCode?: StatusCode): void;
+  protected json<TResponse extends Record<string, unknown>>(content: readonly TResponse[], statusCode?: StatusCode): void;
   protected json<TResponse extends Record<string, unknown>>(content: TResponse, Model: Class): void;
   protected json<TResponse extends Record<string, unknown>>(content: readonly TResponse[], Model: [Class]): void;
   /** @deprecated */

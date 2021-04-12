@@ -89,28 +89,34 @@ export abstract class Route implements IRoute {
       .end();
   }
 
+  // noinspection JSUnusedGlobalSymbols
+  protected jsonAsync<TResponse extends Record<string, unknown>>(content: Promise<TResponse>, Model?: Class): Promise<void>;
+  protected jsonAsync<TResponse extends Record<string, unknown>>(content: Promise<readonly TResponse[]>, Model?: [Class]): Promise<void>;
+  /** @deprecated */
+  protected jsonAsync<TResponse extends Record<string, unknown>>(content: Promise<TResponse>, sanitizers: (string | Sanitizer<unknown, unknown>)[]): Promise<void>;
+  protected jsonAsync<TResponse extends Record<string, unknown>>(content: Promise<TResponse>, statusCode: StatusCode, Model?: Class): Promise<void>;
+  protected jsonAsync<TResponse extends Record<string, unknown>>(content: Promise<readonly TResponse[]>, statusCode: StatusCode, Model?: [Class]): Promise<void>;
+  /** @deprecated */
+  protected jsonAsync<TResponse extends Record<string, unknown>>(content: Promise<TResponse>, statusCode: StatusCode, sanitizers: (string | Sanitizer<unknown, unknown>)[]): Promise<void>;
+  protected async jsonAsync(promise: Promise<any>, ...args: unknown[]): Promise<void> {
+    return this.json(await promise, ...args as any);
+  }
+
+  // noinspection JSUnusedGlobalSymbols
   protected json(content: number, statusCode?: StatusCode): void;
   protected json(content: string, statusCode?: StatusCode): void;
   protected json(content: boolean, statusCode?: StatusCode): void;
   protected json<TResponse extends Record<string, unknown>>(content: TResponse, Model?: Class): void;
   protected json<TResponse extends Record<string, unknown>>(content: readonly TResponse[], Model?: [Class]): void;
-  protected json<TResponse extends Record<string, unknown>>(content: Promise<TResponse>, Model?: Class): Promise<void>;
-  protected json<TResponse extends Record<string, unknown>>(content: Promise<readonly TResponse[]>, Model?: [Class]): Promise<void>;
   /** @deprecated */
   protected json<TResponse extends Record<string, unknown>>(content: TResponse, sanitizers: (string | Sanitizer<unknown, unknown>)[]): void;
-  /** @deprecated */
-  protected json<TResponse extends Record<string, unknown>>(content: Promise<TResponse>, sanitizers: (string | Sanitizer<unknown, unknown>)[]): Promise<void>;
   protected json<TResponse extends Record<string, unknown>>(content: TResponse, statusCode: StatusCode, Model?: Class): void;
   protected json<TResponse extends Record<string, unknown>>(content: readonly TResponse[], statusCode: StatusCode, Model?: [Class]): void;
-  protected json<TResponse extends Record<string, unknown>>(content: Promise<TResponse>, statusCode: StatusCode, Model?: Class): Promise<void>;
-  protected json<TResponse extends Record<string, unknown>>(content: Promise<readonly TResponse[]>, statusCode: StatusCode, Model?: [Class]): Promise<void>;
   /** @deprecated */
   protected json<TResponse extends Record<string, unknown>>(content: TResponse, statusCode: StatusCode, sanitizers: (string | Sanitizer<unknown, unknown>)[]): void;
-  /** @deprecated */
-  protected json<TResponse extends Record<string, unknown>>(content: Promise<TResponse>, statusCode: StatusCode, sanitizers: (string | Sanitizer<unknown, unknown>)[]): Promise<void>;
-  protected json(content: unknown, ...args: unknown[]): void | Promise<void> {
+  protected json(content: unknown, ...args: unknown[]): void {
     if (content instanceof Promise) {
-      return content.then(_ => this.json(_, ...args as any));
+      throw new Error(`Please use jsonAsync() for async content`);
     }
 
     const statusCode = isNumber(args[0]) ? args.shift() as number : StatusCode.OK;
@@ -143,6 +149,7 @@ export abstract class Route implements IRoute {
       .end();
   }
 
+  // noinspection JSUnusedGlobalSymbols
   protected text<TResponse extends string>(
     content: TResponse,
     statusCode: StatusCode | number = StatusCode.OK,

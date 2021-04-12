@@ -6,6 +6,9 @@ import {BadRequestError, RequestError} from './errors';
 import {StatusCode} from './status-code';
 import {createHash} from 'crypto';
 import {pipeline, Readable} from 'stream';
+import read from '@ts-awesome/model-reader';
+
+declare type Class = new (...args: any) => any;
 
 interface ISimpleValidator<T> {
   validate(value: T): true | string[];
@@ -34,6 +37,15 @@ function etagList(list: {uid: string; lastModified: Date; version?: number}[]): 
   }
 
   return etag(sha256(uid), lastModified, list.length);
+}
+
+function isNumber(x: unknown): x is number {
+  return typeof x === 'number';
+}
+
+// todo come up with better detector
+function isES6Class(x: unknown): x is ((...args: any[]) => any) {
+  return typeof x === 'function' && /^\s*class\s+/.test(x.toString());
 }
 
 @injectable()
@@ -77,20 +89,57 @@ export abstract class Route implements IRoute {
       .end();
   }
 
-  protected json<TResponse>(
-    content: TResponse,
-    statusCode: StatusCode | number = StatusCode.OK,
-    sanitizers?: (string | Sanitizer<unknown, unknown>)[]
-  ): void {
+  protected json(content: number, statusCode?: StatusCode): void;
+  protected json(content: string, statusCode?: StatusCode): void;
+  protected json(content: boolean, statusCode?: StatusCode): void;
+  protected json<TResponse extends Record<string, unknown>>(content: TResponse, Model?: Class): void;
+  protected json<TResponse extends Record<string, unknown>>(content: readonly TResponse[], Model?: [Class]): void;
+  protected json<TResponse extends Record<string, unknown>>(content: Promise<TResponse>, Model?: Class): Promise<void>;
+  protected json<TResponse extends Record<string, unknown>>(content: Promise<readonly TResponse[]>, Model?: [Class]): Promise<void>;
+  /** @deprecated */
+  protected json<TResponse extends Record<string, unknown>>(content: TResponse, sanitizers: (string | Sanitizer<unknown, unknown>)[]): void;
+  /** @deprecated */
+  protected json<TResponse extends Record<string, unknown>>(content: Promise<TResponse>, sanitizers: (string | Sanitizer<unknown, unknown>)[]): Promise<void>;
+  protected json<TResponse extends Record<string, unknown>>(content: TResponse, statusCode: StatusCode, Model?: Class): void;
+  protected json<TResponse extends Record<string, unknown>>(content: readonly TResponse[], statusCode: StatusCode, Model?: [Class]): void;
+  protected json<TResponse extends Record<string, unknown>>(content: Promise<TResponse>, statusCode: StatusCode, Model?: Class): Promise<void>;
+  protected json<TResponse extends Record<string, unknown>>(content: Promise<readonly TResponse[]>, statusCode: StatusCode, Model?: [Class]): Promise<void>;
+  /** @deprecated */
+  protected json<TResponse extends Record<string, unknown>>(content: TResponse, statusCode: StatusCode, sanitizers: (string | Sanitizer<unknown, unknown>)[]): void;
+  /** @deprecated */
+  protected json<TResponse extends Record<string, unknown>>(content: Promise<TResponse>, statusCode: StatusCode, sanitizers: (string | Sanitizer<unknown, unknown>)[]): Promise<void>;
+  protected json(content: unknown, ...args: unknown[]): void | Promise<void> {
+    if (content instanceof Promise) {
+      return content.then(_ => this.json(_, ...args as any));
+    }
+
+    const statusCode = isNumber(args[0]) ? args.shift() as number : StatusCode.OK;
+
     this.ensureCacheControl();
     this.ensureRequestMedia('application/json');
     this.setHeader('Date', new Date().toUTCString());
 
-    const res = this.sanitize(Array.isArray(content) ? content : [content] , sanitizers);
+    if (typeof content === 'string' || typeof content === 'number' || typeof content === 'boolean') {
+      return this.response
+        .status(statusCode)
+        .json(content)
+        .end();
+    }
+
+    let results = content;
+    if (!Array.isArray(content) && isES6Class(args[0])) {
+      results = read(content, args[0]);
+    } else if (Array.isArray(content) && Array.isArray(args[0]) && args[0].length === 1 && isES6Class(args[0][0])) {
+      results = read(content, [args[0][0]]);
+    } else if (args.length > 1) {
+      const [sanitizers] = args as any[];
+      const res = this.sanitize(Array.isArray(content) ? content : [content], sanitizers);
+      results = Array.isArray(content) ? res : res[0];
+    }
 
     this.response
-      .status(statusCode ?? 200)
-      .json(Array.isArray(content) ? res : res[0])
+      .status(statusCode)
+      .json(results)
       .end();
   }
 

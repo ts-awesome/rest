@@ -11,14 +11,20 @@ import read from '@ts-awesome/model-reader';
 declare type Class = new (...args: any) => any;
 
 interface ISimpleValidator<T> {
-  validate(value: T): true | string[];
+  validate(value: T): true | readonly string[];
 }
 
 interface IValidatorWithOptions<T, X> {
-  validate(value: T, options?: X & {restrictExtraFields?: boolean}): true | string[];
+  validate(value: T, options?: X & {restrictExtraFields?: boolean}): true | readonly string[];
 }
 
 type IValidator<T> = ISimpleValidator<T> | IValidatorWithOptions<T, any>;
+
+interface ETaggable {
+  readonly uid: string;
+  readonly lastModified: Date;
+  readonly version?: number;
+}
 
 function etag(uid: string, lastModified: Date, version= 0) {
   return JSON.stringify(new Buffer(`${uid}-${version}-${lastModified.getTime()}`).toString('base64'));
@@ -28,15 +34,15 @@ function sha256(data: string | Buffer): string {
   return createHash('sha-256').update(data).digest().toString('hex');
 }
 
-function etagList(list: {uid: string; lastModified: Date; version?: number}[]): string {
+function etagList(list: readonly ETaggable[] | Iterable<ETaggable>): [string, Date] {
   let lastModified = new Date();
-  let uid = '';
+  const uid: string[] = [];
   for(const item of list) {
     lastModified = lastModified > item.lastModified ? lastModified : item.lastModified;
-    uid += `,${etag(item.uid, item.lastModified, item.version ?? 0)}`
+    uid.push(`${etag(item.uid, item.lastModified, item.version ?? 0)}`);
   }
 
-  return etag(sha256(uid), lastModified, list.length);
+  return [etag(sha256(uid.join(',')), lastModified, uid.length), lastModified];
 }
 
 function isNumber(x: unknown): x is number {
@@ -96,10 +102,6 @@ export abstract class Route implements IRoute {
   protected jsonAsync(content: Promise<unknown>, Model: Class): Promise<void>;
   protected jsonAsync(content: Promise<readonly unknown[]>, statusCode: StatusCode, Model: [Class]): Promise<void>;
   protected jsonAsync(content: Promise<unknown>, statusCode: StatusCode, Model: Class): Promise<void>;
-  /** @deprecated */
-  protected jsonAsync(content: Promise<unknown>, sanitizers: (string | Sanitizer<unknown, unknown>)[]): Promise<void>;
-  /** @deprecated */
-  protected jsonAsync(content: Promise<unknown>, statusCode: StatusCode, sanitizers: (string | Sanitizer<unknown, unknown>)[]): Promise<void>;
   protected async jsonAsync(promise: Promise<any>, ...args: unknown[]): Promise<void> {
     return this.json(await promise, ...args as any);
   }
@@ -266,13 +268,8 @@ export abstract class Route implements IRoute {
   }
 
   // noinspection JSUnusedGlobalSymbols
-  protected isNewerList(list: {uid: string; lastModified: Date; version?: number}[]): boolean {
-    let lastModified = new Date();
-    for(const item of list) {
-      lastModified = lastModified > item.lastModified ? lastModified : item.lastModified;
-    }
-
-    const etag = etagList(list);
+  protected isNewerList(list: readonly ETaggable[] | Iterable<ETaggable>): boolean {
+    const [etag, lastModified] = etagList(list);
     return this.isNewerContent(etag, lastModified);
   }
 
@@ -297,13 +294,9 @@ export abstract class Route implements IRoute {
   }
 
   // noinspection JSUnusedGlobalSymbols
-  protected setListETag(list: {uid: string; lastModified: Date; version?: number}[]): void {
-    let lastModified = new Date();
-    for(const item of list) {
-      lastModified = lastModified > item.lastModified ? lastModified : item.lastModified;
-    }
-
-    this.setContentETag(etagList(list), lastModified);
+  protected setListETag(list: readonly ETaggable[] | Iterable<ETaggable>): void {
+    const [etag, lastModified] = etagList(list);
+    this.setContentETag(etag, lastModified);
   }
 
   // noinspection JSUnusedGlobalSymbols

@@ -31,7 +31,7 @@ function etag(uid: string, lastModified: Date, version= 0) {
 }
 
 function sha256(data: string | Buffer): string {
-  return createHash('sha-256').update(data).digest().toString('hex');
+  return createHash('sha256').update(data).digest().toString('hex');
 }
 
 function etagList(list: readonly ETaggable[] | Iterable<ETaggable>): [string, Date] {

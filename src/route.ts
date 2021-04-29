@@ -35,7 +35,7 @@ function sha256(data: string | Buffer): string {
 }
 
 function etagList(list: readonly ETaggable[] | Iterable<ETaggable>): [string, Date] {
-  let lastModified = new Date();
+  let lastModified = new Date(0);
   const uid: string[] = [];
   for(const item of list) {
     lastModified = lastModified > item.lastModified ? lastModified : item.lastModified;

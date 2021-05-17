@@ -232,6 +232,26 @@ export abstract class Route implements IRoute {
   }
 
   // noinspection JSUnusedGlobalSymbols
+  protected getRequestMediaPriority(contentType: string): number | null {
+    const { accept } = this.request.headers;
+    if (typeof accept !== 'string' || accept.indexOf('*/*') >= 0) {
+      return 0;
+    }
+
+    const priority = accept.split(',').findIndex(value => isMatchingRequestMedia(value.trim(), contentType));
+    return priority >= 0 ? priority : null;
+  }
+
+  // noinspection JSUnusedGlobalSymbols
+  protected getPreferredRequestMedia(...contentTypes: string[]): string | null {
+    return contentTypes
+      .map(value => ({value, priority: this.getRequestMediaPriority(value)}))
+      .filter(({priority}) => priority != null)
+      .sort((a, b) => (a.priority ?? 0) - (b.priority ?? 0))
+      .shift()?.value ?? null;
+  }
+
+  // noinspection JSUnusedGlobalSymbols
   protected ensureCacheControl(): void {
     if (!this.response.headersSent) {
       const cacheControl = this.response.cacheControl;
@@ -336,4 +356,16 @@ export abstract class Route implements IRoute {
 
 function hasOwnProperty<X extends {}, Y extends PropertyKey>(obj: X, prop: Y): obj is X & Record<Y, unknown> {
   return Object.prototype.hasOwnProperty.call(obj, prop);
+}
+
+function isMatchingRequestMedia(expected: string, actual: string): boolean {
+  if (expected === '*/*') {
+    return true;
+  }
+
+  if (expected.endsWith('*')) {
+    return actual.startsWith(expected.substring(0, expected.length - 1));
+  }
+
+  return actual === expected;
 }

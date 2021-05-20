@@ -1,5 +1,5 @@
 import {Params, ParamsDictionary, Request, Response} from 'express-serve-static-core';
-import { Container } from 'inversify';
+import {Container} from 'inversify';
 
 export interface IHttpRequest<P extends Params = ParamsDictionary> extends Request<P> {
   container: Container;
@@ -24,3 +24,5 @@ export interface IErrorMiddleware {
 export interface IRoute {
   handle(...args: any[]): Promise<void>;
 }
+
+export declare type Class<T> = new (...args: any) => T;

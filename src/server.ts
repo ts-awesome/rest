@@ -1,58 +1,158 @@
-import { Application, NextFunction, Request, Response } from 'express-serve-static-core';
+import {
+  ErrorRequestHandler,
+  NextFunction,
+  Request,
+  RequestHandler,
+  Response,
+} from 'express-serve-static-core';
 
-import { Container } from 'inversify';
+import {Router} from 'express';
 
-import { MiddlewareMetadata, ParameterMetadata, RouteMetadata, RouteReflector } from './route-refletor';
+import {Container} from 'inversify';
 
-import { IRoute, IHttpRequest, IHttpResponse, IMiddleware } from './interfaces';
+import {ParameterMetadata, RouteMetadata, RouteMetadataSymbol, RouteReflector} from './route-refletor';
 
-import {RequestSymbol, ResponseSymbol} from './symbols';
+import {Class, IErrorMiddleware, IHttpRequest, IHttpResponse, IMiddleware, IRoute} from './interfaces';
+
+import {ErrorHandlerMiddlewareSymbol, RequestSymbol, ResponseSymbol} from './symbols';
+import {
+  consoleReporter,
+  IProfilingLog,
+  IProfilingSession,
+  ProfilingSession,
+  ProfilingSessionSymbol,
+  serverTimingReporter,
+} from "@ts-awesome/profiler";
+import {ErrorHandlerMiddleware, GlobalErrorLogger,} from "./error-handler.middleware";
+import {ILogger, ILoggerFactory, LoggerFactorySymbol} from "@ts-awesome/logger";
 
 export type RequestContainerBinder = (container: Container, req: Request) => void;
 
 /* eslint-disable @typescript-eslint/no-use-before-define */
 
-export default function (app: Application, rootContainer: Container, requestContainerBinder: RequestContainerBinder): void {
+const ProfilingRequestTotal = Symbol();
 
-  // create request container here
-  requireScopeBinder(app, rootContainer, requestContainerBinder);
+export function useRequestContainer(container: Container): RequestHandler {
+  return async(async (req: IHttpRequest, res: IHttpResponse) => {
+    const child = container.createChild();
+    req.container = child;
+    child.bind<IHttpRequest>(RequestSymbol).toConstantValue(req);
+    child.bind<IHttpResponse>(ResponseSymbol).toConstantValue(res);
+  })
+}
+
+export function useProfilingSession<T extends IProfilingSession>(Class?: Class<T>): RequestHandler {
+  return async(async (req: IHttpRequest) => {
+    const profilingSession: IProfilingSession = new (Class ?? ProfilingSession)();
+    req[ProfilingRequestTotal] = profilingSession.start('total');
+    req.container.bind<IProfilingSession>(ProfilingSessionSymbol).toConstantValue(profilingSession);
+  })
+}
+
+export function useProfilingSessionStop(): RequestHandler {
+  return async(async (req: IHttpRequest, res: IHttpResponse) => {
+    // const config = req.container?.isBound(ConfigSymbol) ? req.container.get<IConfig>(ConfigSymbol).get('profiler', ProfilerConfig) : undefined;
+    if (req.container?.isBound(ProfilingSessionSymbol)) {
+      const log = req[ProfilingRequestTotal]?.() as (IProfilingLog | undefined);
+
+      const profilingSession = req.container.get<IProfilingSession>(ProfilingSessionSymbol);
+      if (log != null && log.time > 300) {
+        let logger: ILogger = console;
+        if (req.container?.isBound(LoggerFactorySymbol)) {
+          const loggerFactory = req.container.get<ILoggerFactory>(LoggerFactorySymbol);
+          logger = loggerFactory(ProfilingSession.name);
+        }
+
+        logger.warn(req.url, 'took', log.time.toFixed(1) + 'ms');
+        consoleReporter(profilingSession.logs).forEach(x => logger.info(x));
+      }
+
+      if (!res.headersSent) {
+        res.setHeader('Server-Timing', serverTimingReporter(profilingSession.logs).join(','));
+        res.send();
+      }
+    }
+  })
+}
+
+export function useRequestIoC(init: RequestContainerBinder): RequestHandler {
+  return async(async (req: IHttpRequest) => profileAction(req, 'ioc', async () => init(req.container, req)))
+}
+
+export function useErrorHandler(): ErrorRequestHandler {
+  return (err, req, res, next) => {
+    const url = req.url;
+    (async (err, req, res) => profileAction(req, 'error-handler', () => {
+      if (req.container?.isBound(ErrorHandlerMiddlewareSymbol)) {
+        return req.container.get<IErrorMiddleware>(ErrorHandlerMiddlewareSymbol).handle(err, req, res)
+      }
+
+      let globalErrorLogger: GlobalErrorLogger = (err) => console.error(url, err);
+      if (req.container?.isBound(LoggerFactorySymbol)) {
+        const loggerFactory = req.container.get<ILoggerFactory>(LoggerFactorySymbol);
+        globalErrorLogger = loggerFactory(url).error;
+      }
+
+      return new ErrorHandlerMiddleware(globalErrorLogger).handle(err, req, res);
+    }))(err, req as IHttpRequest, res as IHttpResponse).then(() => next()).catch(next);
+  }
+}
+
+export default function (container: Container, requestContainerBinder: RequestContainerBinder): Router {
+
+  const router = new Router().use(
+    useRequestContainer(container),
+    useProfilingSession(),
+    useRequestIoC(requestContainerBinder),
+  );
 
   const middlewaresMetadata = RouteReflector
     .getMiddlewaresMetadata()
     .sort((a, b) => b.priority - a.priority);
 
-  middlewaresMetadata
-    .filter(meta => meta.priority >= 0)
-    .forEach(meta => registerMiddleware(app, meta));
+  for (const meta of middlewaresMetadata.filter(meta => meta.priority >= 0)) {
+    router[meta.actionType](meta.path, useMiddleware(meta.target));
+  }
 
-  RouteReflector
-    .getRoutesMetadata()
-    .forEach(meta => registerRouter(app, meta));
+  for (const meta of RouteReflector.getRoutesMetadata()) {
+    router[meta.actionType](meta.path, useRoute(meta.target));
+  }
 
-  middlewaresMetadata
-    .filter(meta => meta.priority < 0)
-    .forEach(meta => registerMiddleware(app, meta));
+  for (const meta of middlewaresMetadata.filter(meta => meta.priority < 0)) {
+    router[meta.actionType](meta.path, useMiddleware(meta.target));
+  }
+
+  return router.use(
+    useErrorHandler(),
+    useProfilingSessionStop(),
+    (req, res) => res.end(),
+  );
 }
 
-function requireScopeBinder(app: Application, rootContainer: Container, requestContainerBinder: RequestContainerBinder): void {
-  app.use(async(async (req: IHttpRequest, res: IHttpResponse) => {
-    const requestContainer = rootContainer.createChild();
-    requestContainerBinder(requestContainer, req);
-    requestContainer.bind<IHttpRequest>(RequestSymbol).toConstantValue(req);
-    requestContainer.bind<IHttpResponse>(ResponseSymbol).toConstantValue(res);
-    req.container = requestContainer;
-  }));
+function profileAction(req: IHttpRequest, metric: string, action: () => Promise<void> | void): Promise<void> | void;
+function profileAction(req: IHttpRequest, metric: string, group: string, action: () => Promise<void> | void): Promise<void> | void;
+function profileAction(req: IHttpRequest, ...args: unknown[]): Promise<void> | void {
+  const action = args.pop() as (() => Promise<void> | void);
+
+  const container = req.container;
+  if (!container.isBound(ProfilingSessionSymbol)) {
+    return action();
+  }
+
+  const profilingSession = container.get<IProfilingSession>(ProfilingSessionSymbol);
+  return profilingSession.auto(...args as [string, string, string], async () => action())
 }
 
-function registerRouter(app: Application, meta: RouteMetadata): void {
-  app[meta.actionType](meta.path, async(async (req: IHttpRequest, res: IHttpResponse) => {
+export function useRoute<T extends IRoute>(Class: Class<T>): RequestHandler {
+  const meta: RouteMetadata | undefined = Class[RouteMetadataSymbol];
+  return async(async (req: IHttpRequest, res: IHttpResponse) => {
 
-    if (typeof meta.matcher === 'function' && meta.matcher(req) !== true) {
+    if (typeof meta?.matcher === 'function' && meta.matcher(req) !== true) {
       return;
     }
 
     res.set('Cache-Control', `no-cache`);
-    res.cacheControl = meta.cachable ?? {
+    res.cacheControl = meta?.cachable ?? {
       type: 'no-cache'
     };
 
@@ -63,32 +163,38 @@ function registerRouter(app: Application, meta: RouteMetadata): void {
       };
     }
 
-    const binds = meta.middlewares
+    const binds = meta?.middlewares
       .map((Middleware: any) => {
         const tempSymbol = Symbol();
         req.container.bind<IMiddleware>(tempSymbol).to(Middleware).inSingletonScope();
-        return tempSymbol as any;
-      });
+        return [tempSymbol as any, Middleware.name || 'anonymous'];
+      }) ?? [];
 
-    for (let i = 0; i < binds.length; i++) {
-      await req.container.get<IMiddleware>(binds[i]).handle(req, res);
+    for (const [bound, name] of binds) {
+      await profileAction(req, name, 'middleware', async () => {
+        await req.container.get<IMiddleware>(bound).handle(req, res);
+      })
     }
 
     const routeSymbol = Symbol();
-    req.container.bind<IRoute>(routeSymbol).to(meta.target).inSingletonScope();
+    req.container.bind<IRoute>(routeSymbol).to(Class).inSingletonScope();
     const instance = req.container.get<IRoute>(routeSymbol);
-    const parametersMeta = RouteReflector.getRouteParametersMetadata(meta.target);
-    const args = extractParameters(req, parametersMeta);
-    return instance.handle(...args);
-  }));
+    const args = extractParameters(req, RouteReflector.getRouteParametersMetadata(Class));
+    return profileAction(req, Class.name || 'anonymous', 'route', () => instance.handle(...args));
+  })
 }
 
-function registerMiddleware(app: Application, meta: MiddlewareMetadata): void {
-  app[meta.actionType](meta.path, async(async (req: IHttpRequest, res: IHttpResponse) => {
+export function useMiddleware<T extends IMiddleware>(Class: Class<T>): RequestHandler {
+  return async(async (req: IHttpRequest, res: IHttpResponse) => {
     const middlewareSymbol = Symbol();
-    req.container.bind<IMiddleware>(middlewareSymbol).to(meta.target);
-    return req.container.get<IMiddleware>(middlewareSymbol).handle(req, res);
-  }));
+    req.container.bind<IMiddleware>(middlewareSymbol).to(Class);
+    return profileAction(
+      req,
+      Class.name || 'anonymous',
+      'global',
+      () => req.container.get<IMiddleware>(middlewareSymbol).handle(req, res)
+    );
+  })
 }
 
 function extractParameters(req: Request, params: ParameterMetadata[] = []): any[] {
@@ -125,6 +231,6 @@ function getParam(source: Request, paramType: 'query'|'params'|'headers'|'cookie
   }
 }
 
-function async(fn: Function) {
-  return (req: Request, res: Response, next: NextFunction) => fn(req, res).then(() => next()).catch(next);
+function async(fn: (req: IHttpRequest, res: IHttpResponse) => Promise<any>): RequestHandler {
+  return (req: Request, res: Response, next: NextFunction) => fn(req as IHttpRequest, res as IHttpResponse).then(() => next()).catch(next);
 }

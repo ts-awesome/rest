@@ -19,6 +19,7 @@ export function route(actionType: ActionType, path: string, matcher: MatcherDele
     return constructor;
   }
 }
+
 export function cacheControl(type: 'immutable', maxAge?: number): ClassDecorator;
 export function cacheControl(type: 'public', maxAge: number): ClassDecorator;
 export function cacheControl(type: 'private', maxAge: number): ClassDecorator;
@@ -170,7 +171,7 @@ export function middleware(priority: number, path = '*', actionType: ActionType 
       actionType,
       path,
       priority,
-      target
+      target: target as any
     });
   }
 }

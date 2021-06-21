@@ -212,7 +212,7 @@ export abstract class Route implements IRoute {
   }
 
   private async profileResponse<T>(kind: string, action: (() => Promise<T> | void)): Promise<T | void> {
-    if (!this.request.container.isBound(ProfilingSessionSymbol)) {
+    if (!this.request.container?.isBound(ProfilingSessionSymbol)) {
       return action();
     }
 
@@ -223,7 +223,7 @@ export abstract class Route implements IRoute {
   // noinspection JSUnusedGlobalSymbols
   protected sanitize<T, X = unknown>(objs: T[], sanitizers?: (string|symbol|Sanitizer<T, unknown>)[]): X[] {
     const container = this.request.container;
-    if (container.isBound(SanitizerSymbol)) {
+    if (container?.isBound(SanitizerSymbol)) {
       sanitizers = sanitizers ?? container.getAll<Sanitizer<T, any>>(SanitizerSymbol);
     }
 

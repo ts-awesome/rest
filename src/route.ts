@@ -88,7 +88,7 @@ export abstract class Route implements IRoute {
           .status(StatusCode.OK)
           .header('Content-Security-Policy', `script-src 'sha256-${scriptBodyHash}';`)
           .send(`<!DOCTYPE html><html lang="en"><head>
-<meta http-equiv="refresh___" content="1; URL=${url}" /><title>Redirecting...</title>
+<meta http-equiv="refresh" content="1; URL=${url}" /><title>Redirecting...</title>
 <script type="application/javascript">${scriptBody}</script>
 </head><body><p>If you are not redirected, <a href="${url}">click here</a>.</p></body></html>`);
       });
@@ -99,7 +99,7 @@ export abstract class Route implements IRoute {
         this.response
           .status(StatusCode.OK)
           .send(`<!DOCTYPE html><html lang="en"><head>
-<meta http-equiv="refresh___" content="0; URL=${url}" /><title>Redirecting...</title>
+<meta http-equiv="refresh" content="0; URL=${url}" /><title>Redirecting...</title>
 </head><body><p>If you are not redirected, <a href="${url}">click here</a>.</p></body></html>`);
       });
     }

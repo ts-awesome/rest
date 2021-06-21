@@ -35,8 +35,11 @@ function etag(uid: string, lastModified: Date, version= 0) {
   return JSON.stringify(new Buffer(`${uid}-${version}-${lastModified.getTime()}`).toString('base64'));
 }
 
-function sha256(data: string | Buffer): string {
+function sha256_hex(data: string | Buffer): string {
   return createHash('sha256').update(data).digest().toString('hex');
+}
+function sha256_base64(data: string | Buffer): string {
+  return createHash('sha256').update(data).digest().toString('base64');
 }
 
 function etagList(list: readonly ETaggable[] | Iterable<ETaggable>): [string, Date] {
@@ -47,7 +50,7 @@ function etagList(list: readonly ETaggable[] | Iterable<ETaggable>): [string, Da
     uid.push(`${etag(item.uid, item.lastModified, item.version ?? 0)}`);
   }
 
-  return [etag(sha256(uid.join(',')), lastModified, uid.length), lastModified];
+  return [etag(sha256_hex(uid.join(',')), lastModified, uid.length), lastModified];
 }
 
 function isNumber(x: unknown): x is number {
@@ -77,13 +80,26 @@ export abstract class Route implements IRoute {
     this.ensureCacheControl();
     this.sendProfilingData();
 
-    if (statusCode === true || typeof statusCode === 'string') {
+    if (typeof statusCode === 'string') {
+      const scriptBody = statusCode;
+      const scriptBodyHash = sha256_base64(scriptBody)
+      return this.profileResponse('redirect', async () => {
+        this.response
+          .status(StatusCode.OK)
+          .header('Content-Security-Policy', `script-src 'sha256-${scriptBodyHash}';`)
+          .send(`<!DOCTYPE html><html lang="en"><head>
+<meta http-equiv="refresh___" content="1; URL=${url}" /><title>Redirecting...</title>
+<script type="application/javascript">${scriptBody}</script>
+</head><body><p>If you are not redirected, <a href="${url}">click here</a>.</p></body></html>`);
+      });
+    }
+
+    if (statusCode === true) {
       return this.profileResponse('redirect', async () => {
         this.response
           .status(StatusCode.OK)
           .send(`<!DOCTYPE html><html lang="en"><head>
-<meta http-equiv="refresh" content="${statusCode === true ? 0 : 1}; URL=${url}" /><title>Redirecting...</title>
-<script type="application/javascript">${typeof statusCode === 'string' ? statusCode : ''}</script>
+<meta http-equiv="refresh___" content="0; URL=${url}" /><title>Redirecting...</title>
 </head><body><p>If you are not redirected, <a href="${url}">click here</a>.</p></body></html>`);
       });
     }

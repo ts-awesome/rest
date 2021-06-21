@@ -222,7 +222,7 @@ export abstract class Route implements IRoute {
 
   // noinspection JSUnusedGlobalSymbols
   protected sanitize<T, X = unknown>(objs: T[], sanitizers?: (string|symbol|Sanitizer<T, unknown>)[]): X[] {
-    const container = this.request.container;
+    const { container } = this.request;
     if (container?.isBound(SanitizerSymbol)) {
       sanitizers = sanitizers ?? container.getAll<Sanitizer<T, any>>(SanitizerSymbol);
     }
@@ -234,7 +234,7 @@ export abstract class Route implements IRoute {
     const resolved: Sanitizer<unknown, unknown>[] = sanitizers
       .map(s => typeof s === 'function'
         ? s as Sanitizer<unknown, unknown>
-        : container.getNamed<Sanitizer<unknown, unknown>>(SanitizerSymbol, s));
+        : container?.getNamed<Sanitizer<unknown, unknown>>(SanitizerSymbol, s) ?? (x => x));
 
     const sanitizer: Sanitizer<T, unknown> = (x: unknown) => resolved.reduce((acc, op) => op(acc), x);
 
@@ -377,7 +377,7 @@ export abstract class Route implements IRoute {
   }
 
   private sendProfilingData() {
-    if (this.request.container.isBound(ProfilingSessionSymbol)) {
+    if (this.request.container?.isBound(ProfilingSessionSymbol)) {
       const profilingSession = this.request.container.get<IProfilingSession>(ProfilingSessionSymbol);
       if (profilingSession.logs.length > 0 && !this.response.headersSent) {
         this.setHeader('Server-Timing', serverTimingReporter(profilingSession.logs).join(','));

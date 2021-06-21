@@ -45,7 +45,7 @@ export function useProfilingSession<T extends IProfilingSession>(Class?: Class<T
   return async(async (req: IHttpRequest) => {
     const profilingSession: IProfilingSession = new (Class ?? ProfilingSession)();
     req[ProfilingRequestTotal] = profilingSession.start('total');
-    req.container.bind<IProfilingSession>(ProfilingSessionSymbol).toConstantValue(profilingSession);
+    req.container?.bind<IProfilingSession>(ProfilingSessionSymbol).toConstantValue(profilingSession);
   })
 }
 
@@ -76,7 +76,7 @@ export function useProfilingSessionStop(): RequestHandler {
 }
 
 export function useRequestIoC(init: RequestContainerBinder): RequestHandler {
-  return async(async (req: IHttpRequest) => profileAction(req, 'ioc', async () => init(req.container, req)))
+  return async(async (req: IHttpRequest) => profileAction(req, 'ioc', async () => req.container ? init(req.container, req) : Promise.resolve()))
 }
 
 export function useErrorHandler(): ErrorRequestHandler {
@@ -135,7 +135,7 @@ function profileAction(req: IHttpRequest, ...args: unknown[]): Promise<void> | v
   const action = args.pop() as (() => Promise<void> | void);
 
   const container = req.container;
-  if (!container.isBound(ProfilingSessionSymbol)) {
+  if (!container?.isBound(ProfilingSessionSymbol)) {
     return action();
   }
 
@@ -163,22 +163,24 @@ export function useRoute<T extends IRoute>(Class: Class<T>): RequestHandler {
       };
     }
 
+    const container = req.container ?? new Container();
+
     const binds = meta?.middlewares
       .map((Middleware: any) => {
         const tempSymbol = Symbol();
-        req.container.bind<IMiddleware>(tempSymbol).to(Middleware).inSingletonScope();
+        container.bind<IMiddleware>(tempSymbol).to(Middleware).inSingletonScope();
         return [tempSymbol as any, Middleware.name || 'anonymous'];
       }) ?? [];
 
     for (const [bound, name] of binds) {
       await profileAction(req, name, 'middleware', async () => {
-        await req.container.get<IMiddleware>(bound).handle(req, res);
+        await container.get<IMiddleware>(bound).handle(req, res);
       })
     }
 
     const routeSymbol = Symbol();
-    req.container.bind<IRoute>(routeSymbol).to(Class).inSingletonScope();
-    const instance = req.container.get<IRoute>(routeSymbol);
+    container.bind<IRoute>(routeSymbol).to(Class).inSingletonScope();
+    const instance = container.get<IRoute>(routeSymbol);
     const args = extractParameters(req, RouteReflector.getRouteParametersMetadata(Class));
     return profileAction(req, Class.name || 'anonymous', 'route', () => instance.handle(...args));
   })
@@ -187,12 +189,13 @@ export function useRoute<T extends IRoute>(Class: Class<T>): RequestHandler {
 export function useMiddleware<T extends IMiddleware>(Class: Class<T>): RequestHandler {
   return async(async (req: IHttpRequest, res: IHttpResponse) => {
     const middlewareSymbol = Symbol();
-    req.container.bind<IMiddleware>(middlewareSymbol).to(Class);
+    const container = req.container ?? new Container();
+    container.bind<IMiddleware>(middlewareSymbol).to(Class);
     return profileAction(
       req,
       Class.name || 'anonymous',
       'global',
-      () => req.container.get<IMiddleware>(middlewareSymbol).handle(req, res)
+      () => container.get<IMiddleware>(middlewareSymbol).handle(req, res)
     );
   })
 }

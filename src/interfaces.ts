@@ -2,7 +2,7 @@ import {Params, ParamsDictionary, Request, Response} from 'express-serve-static-
 import {Container} from 'inversify';
 
 export interface IHttpRequest<P extends Params = ParamsDictionary> extends Request<P> {
-  container: Container;
+  container?: Container | null;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-empty-interface

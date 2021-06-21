@@ -72,17 +72,19 @@ export abstract class Route implements IRoute {
   protected redirect(url: string): Promise<void>;
   protected redirect(url: string, statusCode: number): Promise<void>;
   protected redirect(url: string, html: true): Promise<void>;
-  protected async redirect(url: string, statusCode: boolean | number = StatusCode.TemporaryRedirect): Promise<void> {
+  protected redirect(url: string, javascript: string): Promise<void>;
+  protected async redirect(url: string, statusCode: boolean | number | string = StatusCode.TemporaryRedirect): Promise<void> {
     this.ensureCacheControl();
     this.sendProfilingData();
 
-    if (statusCode === true) {
+    if (statusCode === true || typeof statusCode === 'string') {
       return this.profileResponse('redirect', async () => {
         this.response
           .status(StatusCode.OK)
-          .send(`<!DOCTYPE html><html lang="en">
-<head><meta http-equiv="refresh" content="0; URL=${url}" /><title>Redirecting...</title></head>
-<body><p>If you are not redirected, <a href="${url}">click here</a>.</p></body></html>`);
+          .send(`<!DOCTYPE html><html lang="en"><head>
+<meta http-equiv="refresh" content="${statusCode === true ? 0 : 1}; URL=${url}" /><title>Redirecting...</title>
+<script type="application/javascript">${typeof statusCode === 'string' ? statusCode : ''}</script>
+</head><body><p>If you are not redirected, <a href="${url}">click here</a>.</p></body></html>`);
       });
     }
 

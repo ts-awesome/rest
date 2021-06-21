@@ -259,7 +259,7 @@ export abstract class Route implements IRoute {
   // noinspection JSUnusedGlobalSymbols
   protected getRequestMediaPriority(contentType: string): number | null {
     const { accept } = this.request.headers;
-    if (typeof accept !== 'string' || accept.indexOf('*/*') >= 0) {
+    if (typeof accept !== 'string' || accept.trim() === '*/*') {
       return 0;
     }
 

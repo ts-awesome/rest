@@ -1,5 +1,5 @@
 import "reflect-metadata";
-import {IHttpRequest} from "./interfaces";
+import {Class, IHttpRequest, IMiddleware, IRoute} from "./interfaces";
 
 export type ActionType = 'post' | 'get' | 'put' | 'delete' | 'patch' | 'head' | 'all';
 
@@ -15,10 +15,12 @@ export interface MatcherDelegate {
   (req: IHttpRequest): boolean;
 }
 
+export const RouteMetadataSymbol = Symbol.for('RouteMetadataSymbol');
+
 export interface RouteMetadata {
   path: string;
   middlewares: any[];
-  target: any;
+  target: Class<IRoute>;
   actionType: ActionType;
   cachable?: {
     type: 'no-store'|'no-cache'|'private'|'public'|'immutable';
@@ -38,7 +40,7 @@ export interface ParameterMetadata {
 export interface MiddlewareMetadata {
   path: string;
   actionType: ActionType;
-  target: any;
+  target: Class<IMiddleware>;
   priority: number;
 }
 
@@ -68,6 +70,7 @@ export class RouteReflector {
       ...currentMetadata
     };
     Reflect.defineMetadata(METADATA_KEY.route, currentMetadata, target);
+    target[RouteMetadataSymbol] = currentMetadata;
 
     const previousMetadata: RouteMetadata[] = RouteReflector.getRoutesMetadata();
 

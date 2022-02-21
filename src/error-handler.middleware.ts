@@ -27,13 +27,11 @@ export class ErrorHandlerMiddleware implements IErrorMiddleware {
   public async handle(err: Error, req: IHttpRequest, res: IHttpResponse): Promise<void> {
 
     if (res.headersSent) {
-      res.end();
-
       this.errorLogger?.(err, req, (req as any).user);
       return;
     }
 
-    const errorResult: IErrorResult<unknown> = {
+    const errorResult: IErrorResult = {
       error: err.message,
       code: (err as any).statusCode ?? StatusCode.ServerError,
       name: err.name,
@@ -51,18 +49,18 @@ export class ErrorHandlerMiddleware implements IErrorMiddleware {
       }
     }
 
+    // TODO: check if json response has higher priority
     if ((req.header('Accept')?.indexOf('text/html') ?? -1) >= 0) {
-      return res
+      res
         .status(errorResult.code)
         .type('text/html')
-        .send(`<html lang="en"><body><h1>${errorResult.code}</h1><hr/><h2>${errorResult.error}</h2></body></html>`)
-        .end();
+        .send(`<html lang="en"><body><h1>${errorResult.code}</h1><hr/><h2>${errorResult.error}</h2></body></html>`);
+      return;
     }
 
-    return res
+    res
       .status(errorResult.code)
-      .json(errorResult)
-      .end();
+      .json(errorResult);
   }
 }
 

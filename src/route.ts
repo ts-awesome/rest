@@ -7,6 +7,11 @@ import {StatusCode} from './status-code';
 import {createHash} from 'crypto';
 import {pipeline, Readable} from 'stream';
 import read from '@ts-awesome/model-reader';
+import {
+  IProfilingSession,
+  ProfilingSessionSymbol,
+  serverTimingReporter
+} from "@ts-awesome/profiler";
 
 declare type Class = new (...args: any) => any;
 
@@ -30,8 +35,11 @@ function etag(uid: string, lastModified: Date, version= 0) {
   return JSON.stringify(new Buffer(`${uid}-${version}-${lastModified.getTime()}`).toString('base64'));
 }
 
-function sha256(data: string | Buffer): string {
+function sha256_hex(data: string | Buffer): string {
   return createHash('sha256').update(data).digest().toString('hex');
+}
+function sha256_base64(data: string | Buffer): string {
+  return createHash('sha256').update(data).digest().toString('base64');
 }
 
 function etagList(list: readonly ETaggable[] | Iterable<ETaggable>): [string, Date] {
@@ -42,7 +50,7 @@ function etagList(list: readonly ETaggable[] | Iterable<ETaggable>): [string, Da
     uid.push(`${etag(item.uid, item.lastModified, item.version ?? 0)}`);
   }
 
-  return [etag(sha256(uid.join(',')), lastModified, uid.length), lastModified];
+  return [etag(sha256_hex(uid.join(',')), lastModified, uid.length), lastModified];
 }
 
 function isNumber(x: unknown): x is number {
@@ -64,20 +72,36 @@ export abstract class Route implements IRoute {
   protected readonly response!: IHttpResponse;
 
   // noinspection JSUnusedGlobalSymbols
-  protected redirect(url: string): void;
-  protected redirect(url: string, statusCode: number): void;
-  protected redirect(url: string, html: true): void;
-  protected redirect(url: string, statusCode: boolean | number = StatusCode.TemporaryRedirect): void {
+  protected redirect(url: string): Promise<void>;
+  protected redirect(url: string, statusCode: number): Promise<void>;
+  protected redirect(url: string, html: true): Promise<void>;
+  protected redirect(url: string, javascript: string): Promise<void>;
+  protected async redirect(url: string, statusCode: boolean | number | string = StatusCode.TemporaryRedirect): Promise<void> {
     this.ensureCacheControl();
+    this.sendProfilingData();
+
+    if (typeof statusCode === 'string') {
+      const scriptBody = statusCode;
+      const scriptBodyHash = sha256_base64(scriptBody)
+      return this.profileResponse('redirect', async () => {
+        this.response
+          .status(StatusCode.OK)
+          .header('Content-Security-Policy', `script-src 'sha256-${scriptBodyHash}';`)
+          .send(`<!DOCTYPE html><html lang="en"><head>
+<meta http-equiv="refresh" content="1; URL=${url}" /><title>Redirecting...</title>
+<script type="application/javascript">${scriptBody}</script>
+</head><body><p>If you are not redirected, <a href="${url}">click here</a>.</p></body></html>`);
+      });
+    }
 
     if (statusCode === true) {
-      this.response
-        .status(StatusCode.OK)
-        .send(`<!DOCTYPE html><html lang="en">
-<head><meta http-equiv="refresh" content="0; URL=${url}" /><title>Redirecting...</title></head>
-<body><p>If you are not redirected, <a href="${url}">click here</a>.</p></body></html>`)
-        .end();
-      return;
+      return this.profileResponse('redirect', async () => {
+        this.response
+          .status(StatusCode.OK)
+          .send(`<!DOCTYPE html><html lang="en"><head>
+<meta http-equiv="refresh" content="0; URL=${url}" /><title>Redirecting...</title>
+</head><body><p>If you are not redirected, <a href="${url}">click here</a>.</p></body></html>`);
+      });
     }
 
     if (typeof statusCode !== 'number') {
@@ -88,11 +112,13 @@ export abstract class Route implements IRoute {
   }
 
   // noinspection JSUnusedGlobalSymbols
-  protected empty(statusCode: number = StatusCode.NoContent): void {
+  protected async empty(statusCode: number = StatusCode.NoContent): Promise<void> {
     this.ensureCacheControl();
+    this.sendProfilingData();
+
     this.response
       .status(statusCode)
-      .end();
+      .send();
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -107,16 +133,16 @@ export abstract class Route implements IRoute {
   }
 
   // noinspection JSUnusedGlobalSymbols
-  protected json(content: readonly unknown[], Model: [Class]): void;
-  protected json(content: unknown, Model: Class): void;
-  protected json(content: readonly unknown[], statusCode: StatusCode, Model: [Class]): void;
-  protected json(content: unknown, statusCode: StatusCode, Model: Class): void;
-  protected json(content: unknown, statusCode?: StatusCode): void;
+  protected json(content: readonly unknown[], Model: [Class]): Promise<void>;
+  protected json(content: unknown, Model: Class): Promise<void>;
+  protected json(content: readonly unknown[], statusCode: StatusCode, Model: [Class]): Promise<void>;
+  protected json(content: unknown, statusCode: StatusCode, Model: Class): Promise<void>;
+  protected json(content: unknown, statusCode?: StatusCode): Promise<void>;
   /** @deprecated */
-  protected json(content: unknown, sanitizers: (string | Sanitizer<unknown, unknown>)[]): void;
+  protected json(content: unknown, sanitizers: (string | Sanitizer<unknown, unknown>)[]): Promise<void>;
   /** @deprecated */
-  protected json(content: unknown, statusCode: StatusCode, sanitizers: (string | Sanitizer<unknown, unknown>)[]): void;
-  protected json(content: unknown, ...args: unknown[]): void {
+  protected json(content: unknown, statusCode: StatusCode, sanitizers: (string | Sanitizer<unknown, unknown>)[]): Promise<void>;
+  protected json(content: unknown, ...args: unknown[]): Promise<void> {
     if (content instanceof Promise) {
       throw new Error(`Please use jsonAsync() for async content`);
     }
@@ -124,14 +150,16 @@ export abstract class Route implements IRoute {
     const statusCode = isNumber(args[0]) ? args.shift() as number : StatusCode.OK;
 
     this.ensureCacheControl();
+    this.sendProfilingData();
     this.ensureRequestMedia('application/json');
     this.setHeader('Date', new Date().toUTCString());
 
     if (typeof content === 'string' || typeof content === 'number' || typeof content === 'boolean') {
-      return this.response
-        .status(statusCode)
-        .json(content)
-        .end();
+      return this.profileResponse('json', async () => {
+        this.response
+          .status(statusCode)
+          .json(content);
+      });
     }
 
     let results = content;
@@ -145,26 +173,29 @@ export abstract class Route implements IRoute {
       results = Array.isArray(content) ? res : res[0];
     }
 
-    this.response
-      .status(statusCode)
-      .json(results)
-      .end();
+    return this.profileResponse('json', async () => {
+      this.response
+        .status(statusCode)
+        .json(results);
+    })
   }
 
   // noinspection JSUnusedGlobalSymbols
   protected text<TResponse extends string>(
     content: TResponse,
     statusCode: StatusCode | number = StatusCode.OK,
-  ): void {
+  ): Promise<void> {
     this.ensureCacheControl();
+    this.sendProfilingData();
     this.ensureRequestMedia('text/plain');
     this.setHeader('Date', new Date().toUTCString());
 
-    this.response
-      .status(statusCode ?? 200)
-      .type('text')
-      .send(content)
-      .end();
+    return this.profileResponse('text',async () => {
+      this.response
+        .status(statusCode ?? 200)
+        .type('text')
+        .send(content)
+    });
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -175,6 +206,7 @@ export abstract class Route implements IRoute {
     statusCode: StatusCode | number = StatusCode.OK,
   ): Promise<void> {
     this.ensureCacheControl();
+    this.sendProfilingData();
     this.ensureRequestMedia(contentType);
     if (size != null) {
       this.setHeader('Content-Length', size.toString());
@@ -186,19 +218,28 @@ export abstract class Route implements IRoute {
       .status(statusCode ?? 200)
       .type(contentType)
 
-    return new Promise((resolve, reject) => {
+    return this.profileResponse('stream', () => new Promise<void>((resolve, reject) => {
       pipeline(
         content,
         this.response,
-        (e) => { e ? reject(e) : resolve() }
+        (e) => e != null ? reject(e) : resolve(),
       );
-    })
+    }));
+  }
+
+  private async profileResponse<T>(kind: string, action: (() => Promise<T> | void)): Promise<T | void> {
+    if (!this.request.container?.isBound(ProfilingSessionSymbol)) {
+      return action();
+    }
+
+    const profilingSession = this.request.container.get<IProfilingSession>(ProfilingSessionSymbol);
+    return profilingSession.auto(kind, 'response', async () => action())
   }
 
   // noinspection JSUnusedGlobalSymbols
   protected sanitize<T, X = unknown>(objs: T[], sanitizers?: (string|symbol|Sanitizer<T, unknown>)[]): X[] {
-    const container = this.request.container;
-    if (container.isBound(SanitizerSymbol)) {
+    const { container } = this.request;
+    if (container?.isBound(SanitizerSymbol)) {
       sanitizers = sanitizers ?? container.getAll<Sanitizer<T, any>>(SanitizerSymbol);
     }
 
@@ -209,7 +250,7 @@ export abstract class Route implements IRoute {
     const resolved: Sanitizer<unknown, unknown>[] = sanitizers
       .map(s => typeof s === 'function'
         ? s as Sanitizer<unknown, unknown>
-        : container.getNamed<Sanitizer<unknown, unknown>>(SanitizerSymbol, s));
+        : container?.getNamed<Sanitizer<unknown, unknown>>(SanitizerSymbol, s) ?? (x => x));
 
     const sanitizer: Sanitizer<T, unknown> = (x: unknown) => resolved.reduce((acc, op) => op(acc), x);
 
@@ -234,7 +275,7 @@ export abstract class Route implements IRoute {
   // noinspection JSUnusedGlobalSymbols
   protected getRequestMediaPriority(contentType: string): number | null {
     const { accept } = this.request.headers;
-    if (typeof accept !== 'string' || accept.indexOf('*/*') >= 0) {
+    if (typeof accept !== 'string' || accept.trim() === '*/*') {
       return 0;
     }
 
@@ -348,6 +389,15 @@ export abstract class Route implements IRoute {
     const isValid = validator.validate(value, {restrictExtraFields, ...options});
     if (isValid !== true) {
       throw new BadRequestError((message ?? 'Bad request')  + '\n' + isValid.join('\n'));
+    }
+  }
+
+  private sendProfilingData() {
+    if (this.request.container?.isBound(ProfilingSessionSymbol)) {
+      const profilingSession = this.request.container.get<IProfilingSession>(ProfilingSessionSymbol);
+      if (profilingSession.logs.length > 0 && !this.response.headersSent) {
+        this.setHeader('Server-Timing', serverTimingReporter(profilingSession.logs).join(','));
+      }
     }
   }
 

@@ -17,6 +17,9 @@
   },
   "dependencies": {
     "@ts-awesome/model-reader": "^1.0.1",
+    "@ts-awesome/profiler": "^1.0.0-rc0",
+    "@ts-awesome/config": "^1.0.0",
+    "@ts-awesome/logger": "^1.0.0",
     "@types/express-serve-static-core": "~4.17.2",
     "reflect-metadata": "^0.1.13"
   },

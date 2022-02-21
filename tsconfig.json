@@ -69,5 +69,5 @@
       "es2020"
     ],
   },
-  "exclude": ["./bin", "./dist", "./node_modules/**", "./test", "./*.js"]
+  "exclude": ["./bin", "./dist", "./node_modules/**", "./test", "./*.js", "./demo"]
 }

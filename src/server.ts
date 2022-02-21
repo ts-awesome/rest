@@ -218,7 +218,7 @@ function extractParameters(req: Request, params: ParameterMetadata[] = []): any[
   // noinspection CommaExpressionJS
   return params
     .reduce((r: ParameterMetadata[], a) => ((r[a.index] = a), r), [])
-    .map(({ type, parameterName, parser }) => {
+    .map(({ type, parameterName, parser, index }) => {
       const res = (() => {
         switch (type) {
           case 'QUERY_NAMED':   return getParam(req, 'query',   false, parameterName);

@@ -96,9 +96,11 @@ export abstract class BaseApplicationServer implements IServer {
     }
 
     this.resourceManager = new HealthMonitor(this.logger, 'Server');
-    this.resourceManager.register(
-      ...this.container.getAll<IHealthChecker>(HealthExaminationSymbol)
-    )
+    if (this.container?.isBound(HealthExaminationSymbol)) {
+      this.resourceManager.register(
+        ...this.container.getAll<IHealthChecker>(HealthExaminationSymbol)
+      )
+    }
 
     setImmediate(() => {
       this.logger.debug('Configuring server');
@@ -123,6 +125,7 @@ export abstract class BaseApplicationServer implements IServer {
   public async start(): Promise<void> {
     this.live = true;
 
+    this.logger.debug('starting');
     await new Promise<void>((done, reject) => {
       setImmediate(() => {
         try {
@@ -139,6 +142,7 @@ export abstract class BaseApplicationServer implements IServer {
       });
     });
 
+    this.logger.debug('startup');
     try {
       await this.startup();
     } catch (e) {
@@ -149,15 +153,18 @@ export abstract class BaseApplicationServer implements IServer {
   }
 
   public async stop(): Promise<void> {
+    this.logger.debug('stop server');
     this.live = false;
     this.ready = false;
 
+    this.logger.debug('cleanup');
     try {
       await this.cleanup();
     } catch (e) {
       this.logger.error(e as never);
     }
 
+    this.logger.debug('closing connections');
     await new Promise<void>((res, rej) => {
       this.server?.close(err => err ? rej(err) : res());
       this.server = undefined;

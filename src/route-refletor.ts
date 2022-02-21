@@ -31,7 +31,6 @@ export interface RouteMetadata {
 
 export interface ParameterMetadata {
   parameterName: string | symbol | undefined;
-  injectRoot: boolean;
   index: number;
   type: ParameterType;
   parser?: (raw: any, context?: string) => any;

@@ -28,7 +28,10 @@ export class ForbiddenError extends RequestError {
 }
 
 export class BadRequestError extends RequestError {
-  constructor(message?: string) {
+  constructor(
+    message?: string,
+    public readonly details?: unknown,
+  ) {
     super(message || "Bad Request Error", "BadRequest", StatusCode.BadRequest);
 
     Object.setPrototypeOf(this, BadRequestError.prototype);

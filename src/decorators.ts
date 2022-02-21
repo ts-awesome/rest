@@ -66,10 +66,9 @@ export function params<T>(type: ParameterType, parameterName?: string, Model?: T
     if (methodName !== ROUTER_HANDLE_ACTION_NAME) {
       throw new Error(`Invalid route method. Current decorator can only be added on ${ROUTER_HANDLE_ACTION_NAME}`);
     }
-    const injectRoot = parameterName === undefined;
+
     const meta: ParameterMetadata = {
       index,
-      injectRoot,
       parameterName,
       type
     };

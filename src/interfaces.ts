@@ -1,7 +1,7 @@
-import {Params, ParamsDictionary, Request, Response} from 'express-serve-static-core';
+import {Request, Response} from 'express';
 import {Container} from 'inversify';
 
-export interface IHttpRequest<P extends Params = ParamsDictionary> extends Request<P> {
+export interface IHttpRequest extends Request {
   container?: Container | null;
 }
 
@@ -26,3 +26,26 @@ export interface IRoute {
 }
 
 export declare type Class<T> = new (...args: any) => T;
+
+export interface IServer {
+  start(): Promise<void>;
+  stop(): Promise<void>
+}
+
+export interface HealthCheckStatus {
+  readonly title: string;
+  readonly healthy: boolean;
+}
+
+export interface HealthStatus {
+  readonly healthy: boolean;
+  readonly checks: readonly HealthCheckStatus[];
+}
+
+export interface IHealthChecker {
+  readonly title: string;
+  healthy(): Promise<boolean | HealthStatus>;
+}
+
+export interface IManagedResource extends IServer, IHealthChecker {
+}

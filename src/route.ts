@@ -86,6 +86,8 @@ export abstract class Route implements IRoute {
       return this.profileResponse('redirect', async () => {
         this.response
           .status(StatusCode.OK)
+          .header('Cross-Origin-Resource-Policy', 'cross-origin')
+          .header('Cross-Origin-Opener-Policy', 'same-origin')
           .header('Content-Security-Policy', `script-src 'sha256-${scriptBodyHash}';`)
           .send(`<!DOCTYPE html><html lang="en"><head>
 <meta http-equiv="refresh" content="1; URL=${url}" /><title>Redirecting...</title>
@@ -98,6 +100,7 @@ export abstract class Route implements IRoute {
       return this.profileResponse('redirect', async () => {
         this.response
           .status(StatusCode.OK)
+          .header('Cross-Origin-Resource-Policy', 'cross-origin')
           .send(`<!DOCTYPE html><html lang="en"><head>
 <meta http-equiv="refresh" content="0; URL=${url}" /><title>Redirecting...</title>
 </head><body><p>If you are not redirected, <a href="${url}">click here</a>.</p></body></html>`);
@@ -108,7 +111,7 @@ export abstract class Route implements IRoute {
       throw new Error(`Unexpected status code ${JSON.stringify(statusCode)}`)
     }
 
-    this.response.redirect(statusCode, url);
+    this.response.header('Cross-Origin-Resource-Policy', 'cross-origin').redirect(statusCode, url);
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -388,7 +391,7 @@ export abstract class Route implements IRoute {
 
     const isValid = validator.validate(value, {restrictExtraFields, ...options});
     if (isValid !== true) {
-      throw new BadRequestError((message ?? 'Bad request')  + '\n' + isValid.join('\n'));
+      throw new BadRequestError((message ?? 'Bad request')  + '\n' + isValid.join('\n'), isValid);
     }
   }
 

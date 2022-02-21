@@ -1,14 +1,8 @@
-import {
-  ErrorRequestHandler,
-  NextFunction,
-  Request,
-  RequestHandler,
-  Response,
-} from 'express-serve-static-core';
+import {ErrorRequestHandler, NextFunction, Request, RequestHandler, Response,} from 'express';
 
 import {Router} from 'express';
 
-import {Container} from 'inversify';
+import {Container, ContainerModule} from 'inversify';
 
 import {ParameterMetadata, RouteMetadata, RouteMetadataSymbol, RouteReflector} from './route-refletor';
 
@@ -26,20 +20,11 @@ import {
 import {ErrorHandlerMiddleware, GlobalErrorLogger,} from "./error-handler.middleware";
 import {ILogger, ILoggerFactory, LoggerFactorySymbol} from "@ts-awesome/logger";
 
-export type RequestContainerBinder = (container: Container, req: Request) => void;
+export type IoCSetup = (req?: Request) => readonly ContainerModule[];
 
 /* eslint-disable @typescript-eslint/no-use-before-define */
 
 const ProfilingRequestTotal = Symbol();
-
-export function useRequestContainer(container: Container): RequestHandler {
-  return async(async (req: IHttpRequest, res: IHttpResponse) => {
-    const child = container.createChild();
-    req.container = child;
-    child.bind<IHttpRequest>(RequestSymbol).toConstantValue(req);
-    child.bind<IHttpResponse>(ResponseSymbol).toConstantValue(res);
-  })
-}
 
 export function useProfilingSession<T extends IProfilingSession>(Class?: Class<T>): RequestHandler {
   return async(async (req: IHttpRequest) => {
@@ -75,35 +60,56 @@ export function useProfilingSessionStop(): RequestHandler {
   })
 }
 
-export function useRequestIoC(init: RequestContainerBinder): RequestHandler {
-  return async(async (req: IHttpRequest) => profileAction(req, 'ioc', async () => req.container ? init(req.container, req) : Promise.resolve()))
+export function useRequestContainer(container: Container): RequestHandler {
+  return async(async (req: IHttpRequest, res: IHttpResponse) => {
+    const child = req.container = container.createChild();
+    child.bind<IHttpRequest>(RequestSymbol).toConstantValue(req);
+    child.bind<IHttpResponse>(ResponseSymbol).toConstantValue(res);
+  })
+}
+
+export function useContainerModules(setup?: IoCSetup): RequestHandler {
+  return async(async (req: IHttpRequest) => {
+    req.container?.load(...setup?.(req) ?? []);
+  });
 }
 
 export function useErrorHandler(): ErrorRequestHandler {
   return (err, req, res, next) => {
     const url = req.url;
     (async (err, req, res) => profileAction(req, 'error-handler', () => {
-      if (req.container?.isBound(ErrorHandlerMiddlewareSymbol)) {
-        return req.container.get<IErrorMiddleware>(ErrorHandlerMiddlewareSymbol).handle(err, req, res)
+      if (req.container == null) {
+        return next(err);
       }
 
-      let globalErrorLogger: GlobalErrorLogger = (err) => console.error(url, err);
-      if (req.container?.isBound(LoggerFactorySymbol)) {
-        const loggerFactory = req.container.get<ILoggerFactory>(LoggerFactorySymbol);
-        globalErrorLogger = loggerFactory(url).error;
-      }
+      const handler: IErrorMiddleware = (() => {
+        if (req.container?.isBound(ErrorHandlerMiddlewareSymbol)) {
+          return req.container.get<IErrorMiddleware>(ErrorHandlerMiddlewareSymbol)
+        }
 
-      return new ErrorHandlerMiddleware(globalErrorLogger).handle(err, req, res);
-    }))(err, req as IHttpRequest, res as IHttpResponse).then(() => next()).catch(next);
+        let globalErrorLogger: GlobalErrorLogger = (err) => console.error(url, err);
+        if (req.container?.isBound(LoggerFactorySymbol)) {
+          const loggerFactory = req.container.get<ILoggerFactory>(LoggerFactorySymbol);
+          globalErrorLogger = loggerFactory(url).error;
+        }
+
+        return new ErrorHandlerMiddleware(globalErrorLogger)
+      })();
+
+      return handler.handle(err, req, res);
+    }))(err, req as IHttpRequest, res as IHttpResponse)
+      .then(() => next())
+      .catch(next);
   }
 }
 
-export default function (container: Container, requestContainerBinder: RequestContainerBinder): Router {
+export default function (setupRequestModules: IoCSetup): Router {
 
-  const router = new Router().use(
-    useRequestContainer(container),
+  const router = Router().use(
+    // ensure we have a child container before profiling session starts
+    async(async (req: IHttpRequest) => { req.container = req.container?.createChild() ?? new Container(); }),
     useProfilingSession(),
-    useRequestIoC(requestContainerBinder),
+    useContainerModules(setupRequestModules),
   );
 
   const middlewaresMetadata = RouteReflector
@@ -165,22 +171,22 @@ export function useRoute<T extends IRoute>(Class: Class<T>): RequestHandler {
 
     const container = req.container ?? new Container();
 
-    const binds = meta?.middlewares
-      .map((Middleware: any) => {
-        const tempSymbol = Symbol();
-        container.bind<IMiddleware>(tempSymbol).to(Middleware).inSingletonScope();
-        return [tempSymbol as any, Middleware.name || 'anonymous'];
-      }) ?? [];
-
-    for (const [bound, name] of binds) {
-      await profileAction(req, name, 'middleware', async () => {
-        await container.get<IMiddleware>(bound).handle(req, res);
-      })
+    if (!container.isBound(RequestSymbol)) {
+      container.bind<IHttpRequest>(RequestSymbol).toConstantValue(req);
     }
 
-    const routeSymbol = Symbol();
-    container.bind<IRoute>(routeSymbol).to(Class).inSingletonScope();
-    const instance = container.get<IRoute>(routeSymbol);
+    if (!container.isBound(ResponseSymbol)) {
+      container.bind<IHttpResponse>(ResponseSymbol).toConstantValue(res);
+    }
+
+    const binds: [IMiddleware, string][] = meta?.middlewares
+      .map((Middleware: Class<IMiddleware>) => [container.resolve(Middleware), Middleware.name || 'anonymous']) ?? [];
+
+    for (const [instance, name] of binds) {
+      await profileAction(req, name, 'middleware', () => instance.handle(req, res))
+    }
+
+    const instance = container.resolve(Class);
     const args = extractParameters(req, RouteReflector.getRouteParametersMetadata(Class));
     return profileAction(req, Class.name || 'anonymous', 'route', () => instance.handle(...args));
   })
@@ -188,14 +194,22 @@ export function useRoute<T extends IRoute>(Class: Class<T>): RequestHandler {
 
 export function useMiddleware<T extends IMiddleware>(Class: Class<T>): RequestHandler {
   return async(async (req: IHttpRequest, res: IHttpResponse) => {
-    const middlewareSymbol = Symbol();
     const container = req.container ?? new Container();
-    container.bind<IMiddleware>(middlewareSymbol).to(Class);
+
+    if (!container.isBound(RequestSymbol)) {
+      container.bind<IHttpRequest>(RequestSymbol).toConstantValue(req);
+    }
+
+    if (!container.isBound(ResponseSymbol)) {
+      container.bind<IHttpResponse>(ResponseSymbol).toConstantValue(res);
+    }
+
+    const instance = container.resolve(Class);
     return profileAction(
       req,
       Class.name || 'anonymous',
       'global',
-      () => container.get<IMiddleware>(middlewareSymbol).handle(req, res)
+      () => instance.handle(req, res)
     );
   })
 }
@@ -204,16 +218,16 @@ function extractParameters(req: Request, params: ParameterMetadata[] = []): any[
   // noinspection CommaExpressionJS
   return params
     .reduce((r: ParameterMetadata[], a) => ((r[a.index] = a), r), [])
-    .map(({ type, parameterName, injectRoot, parser }) => {
+    .map(({ type, parameterName, parser }) => {
       const res = (() => {
         switch (type) {
-          case 'QUERY_NAMED':   return getParam(req, 'query', injectRoot, parameterName);
-          case 'QUERY_MODEL':   return req.query;
-          case 'REQUEST_NAMED': return getParam(req, 'params', injectRoot, parameterName);
-          case 'BODY_NAMED':    return getParam(req, 'body', injectRoot, parameterName);
-          case 'BODY_MODEL':    return req.body;
-          case 'HEADER_NAMED':  return getParam(req, 'headers', injectRoot, parameterName);
-          case 'COOKIE_NAMED':  return getParam(req, 'cookies', injectRoot, parameterName);
+          case 'QUERY_NAMED':   return getParam(req, 'query',   false, parameterName);
+          case 'QUERY_MODEL':   return getParam(req, 'query',   true,  parameterName);
+          case 'REQUEST_NAMED': return getParam(req, 'params',  false, parameterName);
+          case 'BODY_NAMED':    return getParam(req, 'body',    false, parameterName);
+          case 'BODY_MODEL':    return getParam(req, 'body',    true,  parameterName);
+          case 'HEADER_NAMED':  return getParam(req, 'headers', false, parameterName);
+          case 'COOKIE_NAMED':  return getParam(req, 'cookies', false, parameterName);
           default: throw new Error(`Unknown parameter type ${type}`);
         }
       })();
@@ -221,19 +235,20 @@ function extractParameters(req: Request, params: ParameterMetadata[] = []): any[
     });
 }
 
-function getParam(source: Request, paramType: 'query'|'params'|'headers'|'cookies'|'body', injectRoot: boolean, name?: string | symbol): string {
-  if (paramType === 'headers' && typeof name === 'string') {
-    name = name.toLowerCase();
-  }
+function getParam(source: Request, paramType: 'query'|'params'|'headers'|'cookies'|'body', injectRoot: boolean, name?: string | symbol): string | undefined {
   const param = source[paramType];
-
-  if (injectRoot) {
+  if (param == null || injectRoot) {
     return param;
-  } else {
-    return (param && name) ? param[name] : undefined;
   }
+
+  if (name == null) {
+    return undefined
+  }
+
+  return param[paramType === 'headers' && typeof name === 'string' ? name.toLowerCase() : name];
 }
 
 function async(fn: (req: IHttpRequest, res: IHttpResponse) => Promise<any>): RequestHandler {
   return (req: Request, res: Response, next: NextFunction) => fn(req as IHttpRequest, res as IHttpResponse).then(() => next()).catch(next);
 }
+

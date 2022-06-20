@@ -14,7 +14,7 @@ export interface IHttpResponse extends Response {
 }
 
 export interface IMiddleware {
-  handle(req: IHttpRequest, res: IHttpResponse): Promise<void>;
+  handle(req: IHttpRequest, res: IHttpResponse, ...args: unknown[]): Promise<void>;
 }
 
 export interface IErrorMiddleware {
@@ -22,10 +22,10 @@ export interface IErrorMiddleware {
 }
 
 export interface IRoute {
-  handle(...args: any[]): Promise<void>;
+  handle(...args: unknown[]): Promise<void>;
 }
 
-export declare type Class<T> = new (...args: any) => T;
+export declare type Class<T> = new (...args: unknown[]) => T;
 
 export interface IServer {
   start(): Promise<void>;

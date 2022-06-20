@@ -10,7 +10,7 @@ export function route(actionType: ActionType, path: string, matcher: MatcherDele
     decorate(injectable(), constructor);
 
     RouteReflector.setRouteMetadata(constructor, {
-      middlewares: middlewares,
+      middlewares,
       path,
       target: constructor,
       actionType,

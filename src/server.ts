@@ -4,7 +4,13 @@ import {Router} from 'express';
 
 import {Container, ContainerModule} from 'inversify';
 
-import {ParameterMetadata, RouteMetadata, RouteMetadataSymbol, RouteReflector} from './route-refletor';
+import {
+  MiddlewareMetadataSymbol,
+  ParameterMetadata,
+  RouteMetadata,
+  RouteMetadataSymbol,
+  RouteReflector
+} from './route-refletor';
 
 import {Class, IErrorMiddleware, IHttpRequest, IHttpResponse, IMiddleware, IRoute} from './interfaces';
 
@@ -103,7 +109,18 @@ export function useErrorHandler(): ErrorRequestHandler {
   }
 }
 
-export default function (setupRequestModules: IoCSetup): Router {
+export function useIoC(container: Container): RequestHandler;
+export function useIoC(setup: IoCSetup): RequestHandler;
+export function useIoC(containerOrSetup: Container | IoCSetup): RequestHandler {
+  const container: Container = typeof containerOrSetup === 'function' ? new Container() : containerOrSetup;
+  const setup: IoCSetup = typeof containerOrSetup === 'function' ? containerOrSetup : () => [];
+  container.load(...setup() ?? []);
+  return async(async (req: IHttpRequest) => {
+    req.container = container.createChild();
+  });
+}
+
+export function useRestServer(setupRequestModules: IoCSetup): Router {
 
   const router = Router().use(
     // ensure we have a child container before profiling session starts
@@ -179,16 +196,24 @@ export function useRoute<T extends IRoute>(Class: Class<T>): RequestHandler {
       container.bind<IHttpResponse>(ResponseSymbol).toConstantValue(res);
     }
 
-    const binds: [IMiddleware, string][] = meta?.middlewares
-      .map((Middleware: Class<IMiddleware>) => [container.resolve(Middleware), Middleware.name || 'anonymous']) ?? [];
+    const middlewares: [IMiddleware, string, unknown[]][] = meta?.middlewares
+      .map((Middleware: Class<IMiddleware>) => [
+        container.resolve(Middleware),
+        Middleware.name || 'anonymous',
+        extractParameters(req, RouteReflector.getRouteParametersMetadata(Middleware)).slice(2)
+      ]) ?? [];
 
-    for (const [instance, name] of binds) {
-      await profileAction(req, name, 'middleware', () => instance.handle(req, res))
+    for (const [instance, name, args] of middlewares) {
+      await profileAction(req, name, 'middleware', () => instance.handle(req, res, ...args))
     }
 
     const instance = container.resolve(Class);
     const args = extractParameters(req, RouteReflector.getRouteParametersMetadata(Class));
-    return profileAction(req, Class.name || 'anonymous', 'route', () => instance.handle(...args));
+    return profileAction(
+      req,
+      Class.name || 'anonymous',
+      'route',
+      () => instance.handle(...args));
   })
 }
 
@@ -205,20 +230,49 @@ export function useMiddleware<T extends IMiddleware>(Class: Class<T>): RequestHa
     }
 
     const instance = container.resolve(Class);
+    const args = extractParameters(req, RouteReflector.getRouteParametersMetadata(Class)).slice(2);
     return profileAction(
       req,
       Class.name || 'anonymous',
       'global',
-      () => instance.handle(req, res)
+      () => instance.handle(req, res, ...args)
     );
   })
+}
+
+export function useRoutes<T extends IRoute>(...routes: Class<T>[]): Router {
+  const router = Router();
+
+  for(const Class of routes) {
+    const meta: RouteMetadata | undefined = Class[RouteMetadataSymbol];
+    if (!meta) {
+      throw new Error(`Route class ${Class.name || Class} has no metadata`);
+    }
+    router[meta.actionType](meta.path, useRoute(meta.target));
+  }
+
+  return router;
+}
+
+export function useMiddlewares<T extends IMiddleware>(...middlewares: Class<T>[]): Router {
+  const router = Router();
+
+  for(const Class of middlewares) {
+    const meta: RouteMetadata | undefined = Class[MiddlewareMetadataSymbol];
+    if (!meta) {
+      throw new Error(`Middleware class ${Class.name || Class} has no metadata`);
+    }
+    router[meta.actionType](meta.path, useMiddleware(meta.target));
+  }
+
+  return router;
 }
 
 function extractParameters(req: Request, params: ParameterMetadata[] = []): any[] {
   // noinspection CommaExpressionJS
   return params
     .reduce((r: ParameterMetadata[], a) => ((r[a.index] = a), r), [])
-    .map(({ type, parameterName, parser, index }) => {
+    .map(({ type, parameterName, parser }) => {
       const res = (() => {
         switch (type) {
           case 'QUERY_NAMED':   return getParam(req, 'query',   false, parameterName);

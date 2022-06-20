@@ -5,8 +5,8 @@ import {ILogger, ILoggerFactory, LoggerFactorySymbol} from "@ts-awesome/logger";
 
 import {IoCSetup} from "./server";
 import {HealthMonitor} from "./health-monitor";
-import {HealthStatus, IHealthChecker, IServer} from "./interfaces";
-import {HealthExaminationSymbol} from "./symbols";
+import {HealthStatus, IHealthChecker, IManagedResource, IServer} from "./interfaces";
+import {ExternalResourceSymbol, HealthExaminationSymbol} from "./symbols";
 
 function healthCheck(check: () => boolean | Promise<boolean> | Promise<HealthStatus>): RequestHandler {
   return async (req, res): Promise<void> => {
@@ -58,8 +58,6 @@ export abstract class BaseApplicationServer implements IServer {
    */
   protected async startup(): Promise<void> {
     await this.resourceManager.start();
-    this.ready = true;
-    this.logger.info('Ready to serve');
   }
 
   /**
@@ -101,6 +99,11 @@ export abstract class BaseApplicationServer implements IServer {
         ...this.container.getAll<IHealthChecker>(HealthExaminationSymbol)
       )
     }
+    if (this.container?.isBound(ExternalResourceSymbol)) {
+      this.resourceManager.register(
+        ...this.container.getAll<IManagedResource>(ExternalResourceSymbol)
+      )
+    }
 
     setImmediate(() => {
       this.logger.debug('Configuring server');
@@ -132,7 +135,7 @@ export abstract class BaseApplicationServer implements IServer {
           this.server = this._app
             .listen(this.port, this.hostname, () => {
               let address = this.server?.address() ?? `${this.hostname}:${this.port}`;
-              address = typeof address === 'string' ? address : `${address.family} ${address.address}:${address.port}`
+              address = typeof address === 'string' ? `http://${address}` : `${address.family} http://${address.address}:${address.port}`
               this.logger.info(`Server is listening ${address}`);
               done();
             });
@@ -145,6 +148,8 @@ export abstract class BaseApplicationServer implements IServer {
     this.logger.debug('startup');
     try {
       await this.startup();
+      this.ready = true;
+      this.logger.info('Ready to serve');
     } catch (e) {
       this.logger.error(e as never);
 

@@ -13,6 +13,9 @@ export class RequestError extends Error {
   }
 }
 
+/**
+ * @deprecated please use ConfigError from @ts-awesome/config
+ */
 export class ConfigError extends RequestError {
   constructor(message?: string) {
     super(message || "Config Error", "ConfigError");

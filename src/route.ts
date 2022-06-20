@@ -81,7 +81,12 @@ export abstract class Route implements IRoute {
     this.sendProfilingData();
 
     if (typeof statusCode === 'string') {
-      const scriptBody = statusCode;
+      const userCode = statusCode;
+      const scriptBody = `window.onload = function () { 
+  ${userCode}; 
+  console.log('Redirecting...'); 
+  window.location.href = ${JSON.stringify(url)};
+}`;
       const scriptBodyHash = sha256_base64(scriptBody)
       return this.profileResponse('redirect', async () => {
         this.response
@@ -89,10 +94,16 @@ export abstract class Route implements IRoute {
           .header('Cross-Origin-Resource-Policy', 'cross-origin')
           .header('Cross-Origin-Opener-Policy', 'same-origin')
           .header('Content-Security-Policy', `script-src 'sha256-${scriptBodyHash}';`)
-          .send(`<!DOCTYPE html><html lang="en"><head>
-<meta http-equiv="refresh" content="1; URL=${url}" /><title>Redirecting...</title>
-<script type="application/javascript">${scriptBody}</script>
-</head><body><p>If you are not redirected, <a href="${url}">click here</a>.</p></body></html>`);
+          .send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>Redirecting...</title>
+  <script>${scriptBody}</script>
+</head>
+<body>
+  <p>If you are not redirected, <a href="${url}">click here</a>.</p>
+</body>
+</html>`);
       });
     }
 
@@ -338,7 +349,15 @@ export abstract class Route implements IRoute {
   }
 
   // noinspection JSUnusedGlobalSymbols
+  /**
+   * @deprecated please use ensureModelETag()
+   */
   protected ensureETag(uid: string, lastModified: Date, version = 0): void {
+    this.ensureModelETag(uid, lastModified, version);
+  }
+
+  // noinspection JSUnusedGlobalSymbols
+  protected ensureModelETag(uid: string, lastModified: Date, version = 0): void {
     if (!this.isNewerModel(uid, lastModified, version)) {
       throw new RequestError(`Newer content found on server`, 'Precondition Failed', StatusCode.PreconditionFailed);
     }

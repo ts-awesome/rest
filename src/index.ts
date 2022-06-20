@@ -9,6 +9,6 @@ export * from './server';
 export * from './app'
 export * from "./health-monitor";
 export * from "./utils";
-import RestServer from './server';
-export {RestServer};
-export default RestServer;
+import {useRestServer} from './server';
+export {useRestServer};
+export default useRestServer;

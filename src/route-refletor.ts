@@ -15,7 +15,8 @@ export interface MatcherDelegate {
   (req: IHttpRequest): boolean;
 }
 
-export const RouteMetadataSymbol = Symbol.for('RouteMetadataSymbol');
+export const RouteMetadataSymbol = Symbol.for('RouteMetadata');
+export const MiddlewareMetadataSymbol = Symbol.for('MiddlewareMetadata');
 
 export interface RouteMetadata {
   path: string;
@@ -89,6 +90,7 @@ export class RouteReflector {
 
   public static setMiddlewareMeta(constructor: Object, metadata: MiddlewareMetadata): void {
     Reflect.defineMetadata(METADATA_KEY.middleware, metadata, constructor);
+    constructor[MiddlewareMetadataSymbol] = metadata;
 
     const previousMetadata: MiddlewareMetadata[] = RouteReflector.getMiddlewaresMetadata();
     const newMetadata = [metadata, ...previousMetadata];

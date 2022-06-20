@@ -24,7 +24,6 @@ export class HealthMonitor implements IHealthChecker, IServer {
           .start()
           .catch(e => {
             this.logger.error(`${examination.title} start failed: ${e}`);
-            return new Promise<void>(() => 0);
           })
         );
       }
@@ -34,7 +33,7 @@ export class HealthMonitor implements IHealthChecker, IServer {
       return;
     }
 
-    await Promise.all(promises);
+    await Promise.allSettled(promises);
   }
 
   public async stop(): Promise<void> {
@@ -56,7 +55,7 @@ export class HealthMonitor implements IHealthChecker, IServer {
       return;
     }
 
-    await Promise.all(promises);
+    await Promise.allSettled(promises);
   }
 
   public async healthy(): Promise<HealthStatus> {

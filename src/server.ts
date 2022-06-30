@@ -59,7 +59,7 @@ export function useProfilingSessionStop(): RequestHandler {
         consoleReporter(profilingSession.logs).forEach(x => logger.info(x));
       }
 
-      if (!res.headersSent) {
+      if (!res.headersSent && process.env.VERBOSE_SERVER_TIMING === 'on') {
         res.setHeader('Server-Timing', serverTimingReporter(profilingSession.logs).join(','));
         res.send();
       }

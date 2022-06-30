@@ -442,7 +442,7 @@ export abstract class Route implements IRoute {
   }
 
   private sendProfilingData() {
-    if (this.request.container?.isBound(ProfilingSessionSymbol)) {
+    if (this.request.container?.isBound(ProfilingSessionSymbol) && process.env.VERBOSE_SERVER_TIMING === 'on') {
       const profilingSession = this.request.container.get<IProfilingSession>(ProfilingSessionSymbol);
       if (profilingSession.logs.length > 0 && !this.response.headersSent) {
         this.setHeader('Server-Timing', serverTimingReporter(profilingSession.logs).join(','));

@@ -49,8 +49,7 @@ export class ErrorHandlerMiddleware implements IErrorMiddleware {
       }
     }
 
-    // TODO: check if json response has higher priority
-    if ((req.header('Accept')?.indexOf('text/html') ?? -1) >= 0) {
+    if (req.accepts(['text', 'application/json']) === 'application/json') {
       res
         .status(errorResult.code)
         .type('text/html')

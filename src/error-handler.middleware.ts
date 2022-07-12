@@ -55,7 +55,7 @@ export class ErrorHandlerMiddleware implements IErrorMiddleware {
       this.errorLogger?.(err, req, req.user);
     }
 
-    if (req.accepts('application/json')) {
+    if (req.accepts(['text', 'application/json']) === 'application/json') {
       res
         .status(errorResult.code)
         .json(errorResult);

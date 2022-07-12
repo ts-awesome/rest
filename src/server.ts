@@ -25,6 +25,7 @@ import {
 } from "@ts-awesome/profiler";
 import {ErrorHandlerMiddleware, GlobalErrorLogger,} from "./error-handler.middleware";
 import {ILogger, ILoggerFactory, LoggerFactorySymbol} from "@ts-awesome/logger";
+import {NotFoundError} from "./errors";
 
 export type IoCSetup = (req?: Request) => readonly ContainerModule[];
 
@@ -145,6 +146,12 @@ export function useRestServer(setupRequestModules: IoCSetup): Router {
     router[meta.actionType](meta.path, useMiddleware(meta.target));
   }
 
+  router.use((req, res: Response & {__handledBy?: Class<any>}, next) => {
+    if (!res.headersSent && !res.__handledBy) {
+      next(new NotFoundError(`Resource not found`));
+    }
+  });
+
   return router.use(
     useErrorHandler(),
     useProfilingSessionStop(),
@@ -168,12 +175,13 @@ function profileAction(req: IHttpRequest, ...args: unknown[]): Promise<void> | v
 
 export function useRoute<T extends IRoute>(Class: Class<T>): RequestHandler {
   const meta: RouteMetadata | undefined = Class[RouteMetadataSymbol];
-  return async(async (req: IHttpRequest, res: IHttpResponse) => {
+  return async(async (req: IHttpRequest, res: IHttpResponse & {__handledBy?: Class<T>}) => {
 
     if (typeof meta?.matcher === 'function' && meta.matcher(req) !== true) {
       return;
     }
 
+    res.__handledBy = Class;
     res.set('Cache-Control', `no-cache`);
     res.cacheControl = meta?.cachable ?? {
       type: 'no-cache'

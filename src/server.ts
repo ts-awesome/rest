@@ -194,57 +194,68 @@ export function useRoute<T extends IRoute>(Class: Class<T>): RequestHandler {
       };
     }
 
-    const container = req.container ?? new Container();
+    const prevContainer = req.container;
+    try {
+      const container = req.container = req.container ?? new Container();
 
-    if (!container.isBound(RequestSymbol)) {
-      container.bind<IHttpRequest>(RequestSymbol).toConstantValue(req);
+      if (!container.isBound(RequestSymbol)) {
+        container.bind<IHttpRequest>(RequestSymbol).toConstantValue(req);
+      }
+
+      if (!container.isBound(ResponseSymbol)) {
+        container.bind<IHttpResponse>(ResponseSymbol).toConstantValue(res);
+      }
+
+      const middlewares: [IMiddleware, string, unknown[]][] = meta?.middlewares
+        .map((Middleware: Class<IMiddleware>) => [
+          container.resolve(Middleware),
+          Middleware.name || 'anonymous',
+          extractParameters(req, RouteReflector.getRouteParametersMetadata(Middleware)).slice(2)
+        ]) ?? [];
+
+      for (const [instance, name, args] of middlewares) {
+        await profileAction(req, name, 'middleware', () => instance.handle(req, res, ...args))
+      }
+
+      const instance = container.resolve(Class);
+      const args = extractParameters(req, RouteReflector.getRouteParametersMetadata(Class));
+      return profileAction(
+        req,
+        Class.name || 'anonymous',
+        'route',
+        () => instance.handle(...args));
+
+    } finally {
+      req.container = prevContainer;
     }
-
-    if (!container.isBound(ResponseSymbol)) {
-      container.bind<IHttpResponse>(ResponseSymbol).toConstantValue(res);
-    }
-
-    const middlewares: [IMiddleware, string, unknown[]][] = meta?.middlewares
-      .map((Middleware: Class<IMiddleware>) => [
-        container.resolve(Middleware),
-        Middleware.name || 'anonymous',
-        extractParameters(req, RouteReflector.getRouteParametersMetadata(Middleware)).slice(2)
-      ]) ?? [];
-
-    for (const [instance, name, args] of middlewares) {
-      await profileAction(req, name, 'middleware', () => instance.handle(req, res, ...args))
-    }
-
-    const instance = container.resolve(Class);
-    const args = extractParameters(req, RouteReflector.getRouteParametersMetadata(Class));
-    return profileAction(
-      req,
-      Class.name || 'anonymous',
-      'route',
-      () => instance.handle(...args));
   })
 }
 
 export function useMiddleware<T extends IMiddleware>(Class: Class<T>): RequestHandler {
   return async(async (req: IHttpRequest, res: IHttpResponse) => {
-    const container = req.container ?? new Container();
+    const prevContainer = req.container;
+    try {
+      const container = req.container = req.container ?? new Container();
 
-    if (!container.isBound(RequestSymbol)) {
-      container.bind<IHttpRequest>(RequestSymbol).toConstantValue(req);
+      if (!container.isBound(RequestSymbol)) {
+        container.bind<IHttpRequest>(RequestSymbol).toConstantValue(req);
+      }
+
+      if (!container.isBound(ResponseSymbol)) {
+        container.bind<IHttpResponse>(ResponseSymbol).toConstantValue(res);
+      }
+
+      const instance = container.resolve(Class);
+      const args = extractParameters(req, RouteReflector.getRouteParametersMetadata(Class)).slice(2);
+      return profileAction(
+        req,
+        Class.name || 'anonymous',
+        'global',
+        () => instance.handle(req, res, ...args)
+      );
+    } finally {
+      req.container = prevContainer;
     }
-
-    if (!container.isBound(ResponseSymbol)) {
-      container.bind<IHttpResponse>(ResponseSymbol).toConstantValue(res);
-    }
-
-    const instance = container.resolve(Class);
-    const args = extractParameters(req, RouteReflector.getRouteParametersMetadata(Class)).slice(2);
-    return profileAction(
-      req,
-      Class.name || 'anonymous',
-      'global',
-      () => instance.handle(req, res, ...args)
-    );
   })
 }
 

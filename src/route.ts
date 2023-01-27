@@ -323,9 +323,30 @@ export abstract class Route implements IRoute {
     return true;
   }
 
+  protected isSameContent(etag: string, lastModified?: Date): boolean {
+    const ifMatch = this.request.header('If-Match');
+    if (typeof ifMatch === 'string') {
+      etag = etag.endsWith('"') ? etag : JSON.stringify(etag);
+      return ifMatch.replace('W/', '') === etag.replace('W/', '');
+    }
+
+    const ifUnmodifiedSince = this.request.header('If-Unmodified-Since');
+    if (ifUnmodifiedSince) {
+      const ts = new Date(ifUnmodifiedSince).getTime();
+      return isNaN(ts) || ts <= (lastModified?.getTime() ?? 0);
+    }
+
+    return true;
+  }
+
   // noinspection JSUnusedGlobalSymbols
   protected isNewerModel(uid: string, lastModified: Date, version = 0): boolean {
     return this.isNewerContent(etag(uid, lastModified, version), lastModified);
+  }
+
+  // noinspection JSUnusedGlobalSymbols
+  protected isSameModel(uid: string, lastModified: Date, version = 0): boolean {
+    return this.isSameContent(etag(uid, lastModified, version), lastModified);
   }
 
   // noinspection JSUnusedGlobalSymbols
@@ -335,8 +356,22 @@ export abstract class Route implements IRoute {
   }
 
   // noinspection JSUnusedGlobalSymbols
+  protected isSameList(list: readonly ETaggable[] | Iterable<ETaggable>): boolean {
+    const [etag, lastModified] = etagList(list);
+    return this.isSameContent(etag, lastModified);
+  }
+
+  // noinspection JSUnusedGlobalSymbols
+  /**
+   * @deprecated please use ensureModelETag()
+   */
   protected ensureETag(uid: string, lastModified: Date, version = 0): void {
-    if (!this.isNewerModel(uid, lastModified, version)) {
+    this.ensureModelETag(uid, lastModified, version);
+  }
+
+  // noinspection JSUnusedGlobalSymbols
+  protected ensureModelETag(uid: string, lastModified: Date, version = 0): void {
+    if (!this.isSameModel(uid, lastModified, version)) {
       throw new RequestError(`Newer content found on server`, 'Precondition Failed', StatusCode.PreconditionFailed);
     }
   }

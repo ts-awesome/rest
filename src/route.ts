@@ -25,7 +25,7 @@ interface IValidatorWithOptions<T, X> {
 
 type IValidator<T> = ISimpleValidator<T> | IValidatorWithOptions<T, any>;
 
-interface ETaggable {
+export interface ETaggable {
   readonly uid: string;
   readonly lastModified: Date;
   readonly version?: number;

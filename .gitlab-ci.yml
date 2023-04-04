@@ -3,8 +3,8 @@ stages:
 - publish
 
 before_script:
-- npm ci
 - echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc
+- npm ci
 
 build:
   stage: build
@@ -13,7 +13,6 @@ build:
   - master
   - develop
   script:
-  - cat .npmrc
   - npm run lint
   - npm run build
   - npm run test

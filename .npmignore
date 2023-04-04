@@ -1,3 +1,7 @@
 index.ts
 *-lock.json
 tsconfig.json
+.*
+tests
+tmp
+demo

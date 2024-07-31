@@ -3,6 +3,7 @@ stages:
 - publish
 
 before_script:
+- echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc
 - npm ci
 
 build:

@@ -54,6 +54,7 @@ export function startPm2Server(server: IServer): void {
 }
 
 function panic(err) {
+  // eslint-disable-next-line no-console
   console.error(err);
   process.exit(1);
 }

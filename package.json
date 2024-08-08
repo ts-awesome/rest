@@ -24,8 +24,9 @@
     "@ts-awesome/logger": "^1.1.0",
     "@ts-awesome/model-reader": "^1.0.3",
     "@ts-awesome/profiler": "^1.0.0",
-    "@types/express-serve-static-core": "~4.17.2",
-    "reflect-metadata": "^0.1.13"
+    "@types/express-serve-static-core": "~4.19.5",
+    "reflect-metadata": "^0.1.13",
+    "@types/express": "~4.17.21"
   },
   "devDependencies": {
     "@types/node": "^20.14.13",
@@ -36,7 +37,6 @@
     "eslint": "^8.57.0",
     "typescript": "~5.5.4",
     "inversify": "^6.0.2",
-    "@types/express": "~4.17.21",
     "express": "^5.0.0-beta.3"
   }
 }

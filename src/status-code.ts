@@ -1,7 +1,9 @@
+// noinspection JSUnusedGlobalSymbols
 export enum StatusCode {
   // 1xx: Informational	Communicates transfer protocol-level information.
   // 2xx: Success	Indicates that the client’s request was accepted successfully.
   OK = 200,
+  // eslint-disable-next-line @typescript-eslint/no-duplicate-enum-values
   Success = 200,
   Created = 201,
   Accepted = 202,

@@ -44,8 +44,8 @@ export interface MiddlewareMetadata {
   priority: number;
 }
 
+// noinspection JSUnusedGlobalSymbols
 export class RouteReflector {
-
 
   public static getRoutesFromMetadata(): any[] {
     return RouteReflector.getRoutesMetadata().map((metadata) => metadata.target);

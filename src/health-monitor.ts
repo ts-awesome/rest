@@ -92,11 +92,12 @@ function unpackHealthChecks(statuses: readonly (boolean | HealthStatus)[], title
   let index = 0;
   while(index < statuses.length) {
     const healthy = statuses[index];
+    const title = titles[index]
     index++;
 
     if (typeof healthy === 'boolean') {
       result.push({
-        title: titles[index],
+        title,
         healthy,
       })
     } else {

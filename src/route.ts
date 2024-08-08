@@ -1,7 +1,8 @@
+// noinspection JSUnusedGlobalSymbols
+
 import {IHttpRequest, IHttpResponse, IRoute} from './interfaces';
 import {inject, injectable} from 'inversify';
-import {RequestSymbol, ResponseSymbol, SanitizerSymbol} from './symbols';
-import {Sanitizer} from './sanitizer';
+import {RequestSymbol, ResponseSymbol} from './symbols';
 import {BadRequestError, RequestError} from './errors';
 import {StatusCode} from './status-code';
 import {createHash} from 'crypto';
@@ -14,6 +15,10 @@ import {
 } from "@ts-awesome/profiler";
 
 declare type Class = new (...args: any) => any;
+
+export interface IOutputBuilder<T, R> {
+  build(models: readonly T[], ...args: unknown[]): Promise<readonly R[]>
+}
 
 interface ISimpleValidator<T> {
   validate(value: T): true | readonly string[];
@@ -71,7 +76,6 @@ export abstract class Route implements IRoute {
   @inject(ResponseSymbol)
   protected readonly response!: IHttpResponse;
 
-  // noinspection JSUnusedGlobalSymbols
   protected redirect(url: string): Promise<void>;
   protected redirect(url: string, statusCode: number): Promise<void>;
   protected redirect(url: string, html: true): Promise<void>;
@@ -81,6 +85,7 @@ export abstract class Route implements IRoute {
     this.sendProfilingData();
 
     if (typeof statusCode === 'string') {
+      // noinspection UnnecessaryLocalVariableJS
       const userCode = statusCode;
       const scriptBody = `window.onload = function () { 
   ${userCode}; 
@@ -125,7 +130,6 @@ export abstract class Route implements IRoute {
     this.response.header('Cross-Origin-Resource-Policy', 'cross-origin').redirect(statusCode, url);
   }
 
-  // noinspection JSUnusedGlobalSymbols
   protected async empty(statusCode: number = StatusCode.NoContent): Promise<void> {
     this.ensureCacheControl();
     this.sendProfilingData();
@@ -135,7 +139,8 @@ export abstract class Route implements IRoute {
       .send();
   }
 
-  // noinspection JSUnusedGlobalSymbols
+  protected jsonAsync<T,R=unknown>(content: Promise<readonly T[]>, outputBuilder: IOutputBuilder<T, R>): Promise<void>;
+  protected jsonAsync<T,R=unknown>(content: Promise<T>, outputBuilder: IOutputBuilder<T, R>): Promise<void>;
   protected jsonAsync(content: Promise<readonly unknown[]>, statusCode?: StatusCode): Promise<void>;
   protected jsonAsync(content: Promise<unknown>, statusCode?: StatusCode): Promise<void>;
   protected jsonAsync(content: Promise<readonly unknown[]>, Model: [Class]): Promise<void>;
@@ -146,17 +151,17 @@ export abstract class Route implements IRoute {
     return this.json(await promise, ...args as any);
   }
 
-  // noinspection JSUnusedGlobalSymbols
+  protected json<T,R=unknown>(content: readonly T[], statusCode: StatusCode, outputBuilder: IOutputBuilder<T, R>): Promise<void>;
+  protected json<T,R=unknown>(content: readonly T[], outputBuilder: IOutputBuilder<T, R>): Promise<void>;
+  protected json<T,R=unknown>(content: T, statusCode: StatusCode, outputBuilder: IOutputBuilder<T, R>): Promise<void>;
+  protected json<T,R=unknown>(content: T, outputBuilder: IOutputBuilder<T, R>): Promise<void>;
   protected json(content: readonly unknown[], Model: [Class]): Promise<void>;
   protected json(content: unknown, Model: Class): Promise<void>;
   protected json(content: readonly unknown[], statusCode: StatusCode, Model: [Class]): Promise<void>;
   protected json(content: unknown, statusCode: StatusCode, Model: Class): Promise<void>;
+  protected json(content: readonly unknown[], statusCode?: StatusCode): Promise<void>;
   protected json(content: unknown, statusCode?: StatusCode): Promise<void>;
-  /** @deprecated */
-  protected json(content: unknown, sanitizers: (string | Sanitizer<unknown, unknown>)[]): Promise<void>;
-  /** @deprecated */
-  protected json(content: unknown, statusCode: StatusCode, sanitizers: (string | Sanitizer<unknown, unknown>)[]): Promise<void>;
-  protected json(content: unknown, ...args: unknown[]): Promise<void> {
+  protected async json(content: unknown, ...args: unknown[]): Promise<void> {
     if (content instanceof Promise) {
       throw new Error(`Please use jsonAsync() for async content`);
     }
@@ -177,14 +182,14 @@ export abstract class Route implements IRoute {
     }
 
     let results = content;
-    if (!Array.isArray(content) && isES6Class(args[0])) {
+    if (isOutputBuilder(args[0]) && Array.isArray(content)) {
+      results = await args[0].build(content);
+    } else if (isOutputBuilder(args[0])) {
+      ([results] = await args[0].build([content]));
+    } else if (!Array.isArray(content) && isES6Class(args[0])) {
       results = read(content, args[0]);
     } else if (Array.isArray(content) && Array.isArray(args[0]) && args[0].length === 1 && isES6Class(args[0][0])) {
       results = read(content, [args[0][0]]);
-    } else if (args.length > 1) {
-      const [sanitizers] = args as any[];
-      const res = this.sanitize(Array.isArray(content) ? content : [content], sanitizers);
-      results = Array.isArray(content) ? res : res[0];
     }
 
     return this.profileResponse('json', async () => {
@@ -194,7 +199,6 @@ export abstract class Route implements IRoute {
     })
   }
 
-  // noinspection JSUnusedGlobalSymbols
   protected text<TResponse extends string>(
     content: TResponse,
     statusCode: StatusCode | number = StatusCode.OK,
@@ -212,7 +216,6 @@ export abstract class Route implements IRoute {
     });
   }
 
-  // noinspection JSUnusedGlobalSymbols
   protected stream<TResponse extends Readable>(
     content: TResponse,
     size?: number,
@@ -251,27 +254,6 @@ export abstract class Route implements IRoute {
   }
 
   // noinspection JSUnusedGlobalSymbols
-  protected sanitize<T, X = unknown>(objs: T[], sanitizers?: (string|symbol|Sanitizer<T, unknown>)[]): X[] {
-    const { container } = this.request;
-    if (container?.isBound(SanitizerSymbol)) {
-      sanitizers = sanitizers ?? container.getAll<Sanitizer<T, any>>(SanitizerSymbol);
-    }
-
-    if (!Array.isArray(sanitizers)) {
-      return objs as any;
-    }
-
-    const resolved: Sanitizer<unknown, unknown>[] = sanitizers
-      .map(s => typeof s === 'function'
-        ? s as Sanitizer<unknown, unknown>
-        : container?.getNamed<Sanitizer<unknown, unknown>>(SanitizerSymbol, s) ?? (x => x));
-
-    const sanitizer: Sanitizer<T, unknown> = (x: unknown) => resolved.reduce((acc, op) => op(acc), x);
-
-    return objs.map(sanitizer) as any;
-  }
-
-  // noinspection JSUnusedGlobalSymbols
   protected ensureRequestMedia(expected: string): void {
     const { accept } = this.request.headers;
     if (typeof accept !== 'string' || accept.indexOf('*/*') >= 0) {
@@ -286,7 +268,6 @@ export abstract class Route implements IRoute {
     }
   }
 
-  // noinspection JSUnusedGlobalSymbols
   protected getRequestMediaPriority(contentType: string): number | null {
     const { accept } = this.request.headers;
     if (typeof accept !== 'string' || accept.trim() === '*/*') {
@@ -297,7 +278,6 @@ export abstract class Route implements IRoute {
     return priority >= 0 ? priority : null;
   }
 
-  // noinspection JSUnusedGlobalSymbols
   protected getPreferredRequestMedia(...contentTypes: string[]): string | null {
     return contentTypes
       .map(value => ({value, priority: this.getRequestMediaPriority(value)}))
@@ -306,7 +286,6 @@ export abstract class Route implements IRoute {
       .shift()?.value ?? null;
   }
 
-  // noinspection JSUnusedGlobalSymbols
   protected ensureCacheControl(): void {
     if (!this.response.headersSent) {
       const cacheControl = this.response.cacheControl;
@@ -314,13 +293,11 @@ export abstract class Route implements IRoute {
     }
   }
 
-  // noinspection JSUnusedGlobalSymbols
   protected setHeader(name: string, value: string): this {
     this.response.set(name, value);
     return this;
   }
 
-  // noinspection JSUnusedGlobalSymbols
   protected isNewerContent(etag: string, lastModified?: Date): boolean {
     const ifNoneMatch = this.request.header('If-None-Match');
     if (typeof ifNoneMatch === 'string') {
@@ -353,63 +330,71 @@ export abstract class Route implements IRoute {
     return true;
   }
 
-  // noinspection JSUnusedGlobalSymbols
-  protected isNewerModel(uid: string, lastModified: Date, version = 0): boolean {
+  protected isNewerModel(model: ETaggable): boolean;
+  protected isNewerModel(uid: string, lastModified: Date, version?: number): boolean;
+  protected isNewerModel(...args: unknown[]): boolean {
+    let uid: string, lastModified: Date, version: number
+    if (args.length === 1) {
+      ({uid, lastModified, version = 0} = args[0] as ETaggable);
+    } else {
+      ([uid, lastModified, version = 0] = args as [string, Date, number?]);
+    }
     return this.isNewerContent(etag(uid, lastModified, version), lastModified);
   }
 
-  // noinspection JSUnusedGlobalSymbols
-  protected isSameModel(uid: string, lastModified: Date, version = 0): boolean {
+  protected isSameModel(model: ETaggable): boolean;
+  protected isSameModel(uid: string, lastModified: Date, version?: number): boolean;
+  protected isSameModel(...args: unknown[]): boolean {
+    let uid: string, lastModified: Date, version: number
+    if (args.length === 1) {
+      ({uid, lastModified, version = 0} = args[0] as ETaggable);
+    } else {
+      ([uid, lastModified, version = 0] = args as [string, Date, number?]);
+    }
     return this.isSameContent(etag(uid, lastModified, version), lastModified);
   }
 
-  // noinspection JSUnusedGlobalSymbols
   protected isNewerList(list: readonly ETaggable[] | Iterable<ETaggable>): boolean {
     const [etag, lastModified] = etagList(list);
     return this.isNewerContent(etag, lastModified);
   }
 
-  // noinspection JSUnusedGlobalSymbols
   protected isSameList(list: readonly ETaggable[] | Iterable<ETaggable>): boolean {
     const [etag, lastModified] = etagList(list);
     return this.isSameContent(etag, lastModified);
   }
 
-  // noinspection JSUnusedGlobalSymbols
-  /**
-   * @deprecated please use ensureModelETag()
-   */
-  protected ensureETag(uid: string, lastModified: Date, version = 0): void {
-    this.ensureModelETag(uid, lastModified, version);
-  }
-
-  // noinspection JSUnusedGlobalSymbols
-  protected ensureModelETag(uid: string, lastModified: Date, version = 0): void {
+  protected ensureModelETag(model: ETaggable): void;
+  protected ensureModelETag(uid: string, lastModified: Date, version?: number): void;
+  protected ensureModelETag(...args: unknown[]): void {
+    let uid: string, lastModified: Date, version: number
+    if (args.length === 1) {
+      ({uid, lastModified, version = 0} = args[0] as ETaggable);
+    } else {
+      ([uid, lastModified, version = 0] = args as [string, Date, number?]);
+    }
     if (!this.isSameModel(uid, lastModified, version)) {
       throw new RequestError(`Newer content found on server`, 'Precondition Failed', StatusCode.PreconditionFailed);
     }
   }
 
-  // noinspection JSUnusedGlobalSymbols
-  /**
-   * @deprecated please use setModelETag()
-   */
-  protected setETag(uid: string, lastModified: Date, version = 0): void {
-    this.setModelETag(uid, lastModified, version);
-  }
-
-  // noinspection JSUnusedGlobalSymbols
-  protected setModelETag(uid: string, lastModified: Date, version = 0): void {
+  protected setModelETag(model: ETaggable): void;
+  protected setModelETag(uid: string, lastModified: Date, version?: number): void;
+  protected setModelETag(...args: unknown[]): void {
+    let uid: string, lastModified: Date, version: number
+    if (args.length === 1) {
+      ({uid, lastModified, version = 0} = args[0] as ETaggable);
+    } else {
+      ([uid, lastModified, version = 0] = args as [string, Date, number?]);
+    }
     this.setContentETag(etag(uid, lastModified, version), lastModified);
   }
 
-  // noinspection JSUnusedGlobalSymbols
   protected setListETag(list: readonly ETaggable[] | Iterable<ETaggable>): void {
     const [etag, lastModified] = etagList(list);
     this.setContentETag(etag, lastModified);
   }
 
-  // noinspection JSUnusedGlobalSymbols
   protected setContentETag(etag: string, lastModified?: Date): void {
     this.setHeader('ETag', etag.endsWith('"') ? etag : JSON.stringify(etag));
     if (lastModified) {
@@ -417,7 +402,6 @@ export abstract class Route implements IRoute {
     }
   }
 
-  // noinspection JSUnusedGlobalSymbols
   protected validate<T>(validator: IValidator<T>, value: T, message?: string): void;
   protected validate<T, X>(validator: IValidatorWithOptions<T, X>, value: T, message?: string, options?: X): void;
   protected validate<T>(validator: IValidator<T>, value: T[], message?: string): void;
@@ -467,4 +451,8 @@ function isMatchingRequestMedia(expected: string, actual: string): boolean {
   }
 
   return actual === expected;
+}
+
+function isOutputBuilder(value: unknown): value is IOutputBuilder<unknown, unknown> {
+  return !!value && typeof value === 'object' && ('build' in value) && (typeof value.build === 'function');
 }

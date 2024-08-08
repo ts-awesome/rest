@@ -32,7 +32,7 @@ export class ErrorHandlerMiddleware implements IErrorMiddleware {
     }
 
     const { message, statusCode, name, ...data} = err;
-    let errorResult: IErrorResult<unknown> = {
+    let errorResult: IErrorResult = {
       error: message,
       code: statusCode ?? StatusCode.ServerError,
       name,
@@ -70,6 +70,7 @@ export class ErrorHandlerMiddleware implements IErrorMiddleware {
   }
 }
 
+// noinspection JSUnusedGlobalSymbols
 export function errorHandlerFactory(globalErrorLoggerFactory?: GlobalErrorLoggerFactory): ErrorRequestHandler {
   return (err, req, res, next) => {
     new ErrorHandlerMiddleware(globalErrorLoggerFactory?.(req.url))

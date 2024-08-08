@@ -1,3 +1,5 @@
+// noinspection JSUnusedGlobalSymbols
+
 import { injectable, decorate } from 'inversify';
 import reader, {proxied} from '@ts-awesome/model-reader';
 
@@ -61,7 +63,7 @@ export function httpPatch(path: string, ...middlewares: any[]): ClassDecorator {
 }
 
 export function params<T>(type: ParameterType, parameterName?: string, Model?: T | [T], nullable?: boolean): ParameterDecorator {
-  return (target: any, methodName: string | symbol, index: number) => {
+  return (target: any, methodName: string | symbol | undefined, index: number) => {
     if (methodName !== ROUTER_HANDLE_ACTION_NAME) {
       throw new Error(`Invalid route method. Current decorator can only be added on ${ROUTER_HANDLE_ACTION_NAME}`);
     }

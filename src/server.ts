@@ -1,3 +1,5 @@
+// noinspection JSUnusedGlobalSymbols
+
 import {ErrorRequestHandler, NextFunction, Request, RequestHandler, Response,} from 'express';
 
 import {Router} from 'express';
@@ -134,8 +136,9 @@ export function useRestServer(setupRequestModules: IoCSetup): Router {
     .getMiddlewaresMetadata()
     .sort((a, b) => b.priority - a.priority);
 
+
   for (const meta of middlewaresMetadata.filter(meta => meta.priority >= 0)) {
-    router[meta.actionType](meta.path, useMiddleware(meta.target));
+    router[meta.actionType === 'all' ? 'use' : meta.actionType](meta.path === '*' ? '/' : meta.path, useMiddleware(meta.target) as never);
   }
 
   for (const meta of RouteReflector.getRoutesMetadata()) {
@@ -143,7 +146,7 @@ export function useRestServer(setupRequestModules: IoCSetup): Router {
   }
 
   for (const meta of middlewaresMetadata.filter(meta => meta.priority < 0)) {
-    router[meta.actionType](meta.path, useMiddleware(meta.target));
+    router[meta.actionType === 'all' ? 'use' : meta.actionType](meta.path === '*' ? '/' : meta.path, useMiddleware(meta.target));
   }
 
   router.use((req, res: Response & {__handledBy?: Class<any>}, next) => {
@@ -155,7 +158,7 @@ export function useRestServer(setupRequestModules: IoCSetup): Router {
   return router.use(
     useErrorHandler(),
     useProfilingSessionStop(),
-    (req, res) => res.end(),
+    (_req, res) => res.end(),
   );
 }
 
@@ -177,6 +180,7 @@ export function useRoute<T extends IRoute>(Class: Class<T>): RequestHandler {
   const meta: RouteMetadata | undefined = Class[RouteMetadataSymbol];
   return async(async (req: IHttpRequest, res: IHttpResponse & {__handledBy?: Class<T>}) => {
 
+    // noinspection PointlessBooleanExpressionJS
     if (typeof meta?.matcher === 'function' && meta.matcher(req) !== true) {
       return;
     }
@@ -206,12 +210,21 @@ export function useRoute<T extends IRoute>(Class: Class<T>): RequestHandler {
         container.bind<IHttpResponse>(ResponseSymbol).toConstantValue(res);
       }
 
-      const middlewares: [IMiddleware, string, unknown[]][] = meta?.middlewares
-        .map((Middleware: Class<IMiddleware>) => [
-          container.resolve(Middleware),
-          Middleware.name || 'anonymous',
-          extractParameters(req, RouteReflector.getRouteParametersMetadata(Middleware)).slice(2)
-        ]) ?? [];
+      const middlewares: [IMiddleware, string, unknown[]][] = []
+
+      for(const Middleware of meta?.middlewares ?? []) {
+        const className = Middleware.prototype?.constructor?.name ?? Middleware.constructor?.name ?? Middleware.name ?? 'anonymous'
+        try {
+          const instance: IMiddleware = container.resolve(Middleware);
+          middlewares.push([
+            instance,
+            className,
+            extractParameters(req, RouteReflector.getRouteParametersMetadata(Middleware)).slice(2)
+          ])
+        } catch (e) {
+          throw new Error(`Middleware ${className} failed with ${e}`)
+        }
+      }
 
       for (const [instance, name, args] of middlewares) {
         await profileAction(req, name, 'middleware', () => instance.handle(req, res, ...args))
@@ -234,6 +247,7 @@ export function useRoute<T extends IRoute>(Class: Class<T>): RequestHandler {
 export function useMiddleware<T extends IMiddleware>(Class: Class<T>): RequestHandler {
   return async(async (req: IHttpRequest, res: IHttpResponse) => {
     const prevContainer = req.container;
+
     try {
       const container = req.container = req.container ?? new Container();
 
@@ -245,11 +259,18 @@ export function useMiddleware<T extends IMiddleware>(Class: Class<T>): RequestHa
         container.bind<IHttpResponse>(ResponseSymbol).toConstantValue(res);
       }
 
-      const instance = container.resolve(Class);
+      const className = Class.prototype?.constructor?.name ?? Class.constructor?.name ?? Class.name ?? 'anonymous'
+      let instance: T
+      try {
+        instance = container.resolve(Class);
+      } catch (e) {
+        throw new Error(`Middleware ${className} failed with ${e}`)
+      }
+
       const args = extractParameters(req, RouteReflector.getRouteParametersMetadata(Class)).slice(2);
       return profileAction(
         req,
-        Class.name || 'anonymous',
+        className,
         'global',
         () => instance.handle(req, res, ...args)
       );

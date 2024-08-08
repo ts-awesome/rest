@@ -9,7 +9,7 @@ import {HealthStatus, IHealthChecker, IManagedResource, IServer} from "./interfa
 import {ExternalResourceSymbol, HealthExaminationSymbol} from "./symbols";
 
 function healthCheck(check: () => boolean | Promise<boolean> | Promise<HealthStatus>): RequestHandler {
-  return async (req, res): Promise<void> => {
+  return async (_req, res): Promise<void> => {
     const status = await check();
     if (typeof status === "boolean") {
       res
@@ -113,7 +113,7 @@ export abstract class BaseApplicationServer implements IServer {
       this._app.get('/health/ready', healthCheck(() => this.ready));
       this._app.get('/health/live', healthCheck(() => this.heartbeat()));
 
-      this._app.use((req, res, next) => {
+      this._app.use((_req, res, next) => {
         if (!this.ready) {
           return res.status(503).send('Server is not ready yet').end();
         }
@@ -135,6 +135,7 @@ export abstract class BaseApplicationServer implements IServer {
           this.server = this._app
             .listen(this.port, this.hostname, () => {
               let address = this.server?.address() ?? `${this.hostname}:${this.port}`;
+              // noinspection HttpUrlsUsage
               address = typeof address === 'string' ? `http://${address}` : `${address.family} http://${address.address}:${address.port}`
               this.logger.info(`Server is listening ${address}`);
               done();

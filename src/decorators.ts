@@ -4,6 +4,7 @@ import { injectable, decorate } from 'inversify';
 import reader, {proxied} from '@ts-awesome/model-reader';
 
 import {RouteReflector, ActionType, ParameterType, ParameterMetadata, MatcherDelegate} from './route-refletor';
+import {IMiddleware} from "./interfaces";
 
 const ROUTER_HANDLE_ACTION_NAME = 'handle';
 
@@ -40,25 +41,25 @@ export function cacheControl(type: 'no-store'|'no-cache'|'private'|'public'|'imm
   }
 }
 
-export function httpAll(path: string, ...middlewares: any[]): ClassDecorator {
+export function httpAll(path: string, ...middlewares: Class<IMiddleware>[]): ClassDecorator {
   return route('all', path, null, ...middlewares);
 }
-export function httpPost(path: string, ...middlewares: any[]): ClassDecorator {
+export function httpPost(path: string, ...middlewares: Class<IMiddleware>[]): ClassDecorator {
   return route('post', path, null, ...middlewares);
 }
-export function httpPut(path: string, ...middlewares: any[]): ClassDecorator {
+export function httpPut(path: string, ...middlewares: Class<IMiddleware>[]): ClassDecorator {
   return route('put', path, null, ...middlewares);
 }
-export function httpGet(path: string, ...middlewares: any[]): ClassDecorator {
+export function httpGet(path: string, ...middlewares: Class<IMiddleware>[]): ClassDecorator {
   return route('get', path, null, ...middlewares);
 }
-export function httpDelete(path: string, ...middlewares: any[]): ClassDecorator {
+export function httpDelete(path: string, ...middlewares: Class<IMiddleware>[]): ClassDecorator {
   return route('delete', path, null, ...middlewares);
 }
-export function httpHead(path: string, ...middlewares: any[]): ClassDecorator {
+export function httpHead(path: string, ...middlewares: Class<IMiddleware>[]): ClassDecorator {
   return route('head', path, null, ...middlewares);
 }
-export function httpPatch(path: string, ...middlewares: any[]): ClassDecorator {
+export function httpPatch(path: string, ...middlewares: Class<IMiddleware>[]): ClassDecorator {
   return route('patch', path, null, ...middlewares);
 }
 

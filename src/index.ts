@@ -6,8 +6,9 @@ export * from './decorators';
 export * from './route';
 export * from './server';
 export * from './app'
-export * from "./health-monitor";
-export * from "./utils";
+export * from './health-monitor';
+export * from './utils';
+export * from './native.middleware'
 import {useRestServer} from './server';
 export {useRestServer};
 export default useRestServer;

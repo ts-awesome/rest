@@ -421,7 +421,7 @@ export abstract class Route implements IRoute {
 
     const isValid = validator.validate(value, {restrictExtraFields, ...options});
     if (isValid !== true) {
-      throw new BadRequestError((message ?? 'Bad request')  + '\n' + isValid.join('\n'), isValid);
+      throw new BadRequestError((message ?? 'Errors: ')  + '\n' + isValid.join('\n'), isValid);
     }
   }
 
@@ -437,7 +437,7 @@ export abstract class Route implements IRoute {
   public abstract handle(...args: any[]): Promise<void>;
 }
 
-function hasOwnProperty<X extends {}, Y extends PropertyKey>(obj: X, prop: Y): obj is X & Record<Y, unknown> {
+function hasOwnProperty<X extends object, Y extends PropertyKey>(obj: X, prop: Y): obj is X & Record<Y, unknown> {
   return Object.prototype.hasOwnProperty.call(obj, prop);
 }
 

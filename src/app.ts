@@ -113,13 +113,13 @@ export abstract class BaseApplicationServer implements IServer {
       this._app.get('/health/ready', healthCheck(() => this.ready));
       this._app.get('/health/live', healthCheck(() => this.heartbeat()));
 
-      this._app.use((_req, res, next) => {
+      this._app.use(((_req, res, next) => {
         if (!this.ready) {
           return res.status(503).send('Server is not ready yet').end();
         }
 
         next();
-      })
+      }) as never)
 
       this.configure(this._app);
     });

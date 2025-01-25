@@ -22,6 +22,7 @@ export enum StatusCode {
   MethodNotAllowed = 405,
   NotAcceptable = 406,
   Conflict = 409,
+  Gone = 410,
   PreconditionFailed = 412,
   UnsupportedMediaType = 415,
   // 5xx: Server Error	The server takes responsibility for these error status codes.

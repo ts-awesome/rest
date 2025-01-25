@@ -1,5 +1,5 @@
 import type {IHttpRequest, IHttpResponse, IMiddleware} from "./interfaces";
-import type {RequestHandler} from "express-serve-static-core";
+import type {RequestHandler} from "express";
 import {injectable} from "inversify";
 
 type Class<T> = new (...arg: unknown[]) => T;

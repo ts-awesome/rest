@@ -63,7 +63,9 @@ export class HealthMonitor implements IHealthChecker, IServer {
       return {healthy: true, checks: []};
     }
 
-    this.logger.debug(`${this.title} health check...`);
+    if (process.env.NODE_ENV !== 'production') {
+      this.logger.debug(`${this.title} health check...`);
+    }
 
     const promises: Promise<boolean | HealthStatus>[] = []
     const titles: string[] = [];
@@ -77,7 +79,9 @@ export class HealthMonitor implements IHealthChecker, IServer {
 
     const statuses = await Promise.all(promises);
     const healthy = statuses.every(x => typeof x === 'boolean' ? x : x.healthy);
-    this.logger.debug(`${this.title} is ${healthy ? 'UP' : 'DOWN'}`);
+    if (process.env.NODE_ENV !== 'production') {
+      this.logger.debug(`${this.title} is ${healthy ? 'UP' : 'DOWN'}`);
+    }
 
     const checks = unpackHealthChecks(statuses, titles);
     return {
